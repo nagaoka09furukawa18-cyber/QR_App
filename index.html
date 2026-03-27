@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+      #reader { width: 100%; max-width: 400px; margin: auto; }
+      #logArea { font-size: 12px; background: #eee; height: 150px; overflow-y: scroll; border: 1px solid #ccc; }
+      button { width: 100%; padding: 15px; font-size: 18px; margin-bottom: 10px; }
+    </style>
+  </head>
+  <body>
+    <h2>QR Reader</h2>
+    <button id="startBtn">カメラを起動する</button>
+    <div id="reader"></div>
+    <div id="logArea"></div>
+
+   <script>
+  const log = (msg) => {
+    document.getElementById("logArea").insertAdjacentHTML("beforeend", `<div>${new Date().toLocaleTimeString()}: ${msg}</div>`);
+  };
+
+  let html5QrCode;
+
+  document.getElementById("startBtn").addEventListener("click", async () => {
+    log("① 権限チェック開始...");
+
+    try {
+      // --- ここが最重要の追加箇所 ---
+      // html5-qrcodeを動かす前に、ブラウザ自身の権限ダイアログを強制的に出します
+      await navigator.mediaDevices.getUserMedia({ video: true });
+      log("② ブラウザのカメラ許可を確認");
+      // ----------------------------
+
+      if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+      
+      log("③ カメラ起動をリクエスト中...");
+      
+      await html5QrCode.start(
+        { facingMode: "environment" }, 
+        { 
+          fps: 10, 
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0 // iPhoneの縦長画面でのズレ防止
+        },
+        (decodedText) => {
+          log("読取成功: " + decodedText);
+          google.script.run.withSuccessHandler(() => log("GAS保存完了")).saveQR(decodedText);
+        },
+        (errorMessage) => { /* 無視 */ }
+      );
+      
+      log("④ カメラ起動成功！");
+      document.getElementById("startBtn").style.display = "none"; // 起動したらボタンを隠す
+
+    } catch (err) {
+      log("❌ エラー発生: " + err);
+      // NotAllowedErrorならSafariの設定、NotReadableErrorなら他アプリでカメラ使用中
+      alert("カメラを起動できませんでした。\n理由: " + err);
+    }
+  });
+</script>
+  </body>
+</html>
