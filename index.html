@@ -11,12 +11,17 @@
         .screen { display: none; }
         .active { display: block; }
         
-        /* ボタン：文字に合わせて幅が変わり、横に並ぶ設定 */
+        /* 基本ボタン：タイル状 */
         button { padding: 12px 18px; margin: 5px; font-size: 15px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; display: inline-block; }
         .btn-blue { background: #007bff; color: white; }
         .btn-green { background: #28a745; color: white; }
         .btn-gray { background: #6c757d; color: white; }
+        
+        /* メイン・登録ボタン：横幅いっぱい */
         .btn-main { width: 100%; padding: 18px; font-size: 18px; margin: 10px 0; display: block; }
+
+        /* 装置専用ボタン：1行1ボタン（左寄せ） */
+        .btn-mac { width: 100%; display: block; text-align: left; padding: 15px 20px; margin: 8px 0; background: #007bff; color: white; border-radius: 8px; font-size: 16px; }
 
         /* 選択枠（スロット）のスタイル */
         .select-slot { background: #fff; border: 2px solid #e0e0e0; padding: 10px; margin: 8px 0; border-radius: 8px; text-align: left; font-size: 14px; cursor: pointer; }
@@ -25,6 +30,8 @@
         .select-slot.disabled { background: #f9f9f9; color: #aaa; cursor: not-allowed; border-style: dashed; }
         
         #button-container { background: #fdfdfd; border: 1px solid #eee; border-radius: 10px; padding: 10px; margin-top: 15px; min-height: 80px; }
+        .checkbox-item { display: block; text-align: left; padding: 10px; font-size: 18px; border-bottom: 1px solid #eee; }
+        .checkbox-item input { transform: scale(1.5); margin-right: 15px; }
         .device-id { font-size: 10px; color: #ccc; margin-top: 20px; }
     </style>
 </head>
@@ -41,8 +48,9 @@
 
     <div id="screenConfig" class="screen">
         <h3>端末担当設定</h3>
-        <div id="configList" style="text-align:left;">取得中...</div>
+        <div id="configList" style="margin-bottom:15px;">取得中...</div>
         <button class="btn-green btn-main" onclick="saveConfig()">設定を保存</button>
+        <button class="btn-gray" onclick="location.reload()" style="font-size:12px;">戻る</button>
     </div>
 
     <div id="screenScanner" class="screen">
@@ -59,7 +67,7 @@
         <div id="slot-mac" class="select-slot disabled" onclick="clickMacSlot()">装置: <strong id="val-mac">【---】</strong></div>
 
         <div id="button-container">
-            <div id="button-title" style="font-size:13px; color:#666; margin-bottom:10px;"></div>
+            <div id="button-title" style="font-size:13px; color:#666; margin-bottom:10px; font-weight:bold;"></div>
             <div id="button-area"></div>
         </div>
 
@@ -100,13 +108,13 @@
         clickProcSlot();
     }
 
-    // --- 1. 工程選択 ---
     function clickProcSlot() {
         updateUI('proc');
         const area = document.getElementById('button-area');
         area.innerHTML = "";
-        const myStations = localStorage.getItem('myStations').split(',');
-        myStations.forEach(p => {
+        const stations = localStorage.getItem('myStations');
+        if(!stations) return;
+        stations.split(',').forEach(p => {
             const btn = document.createElement('button');
             btn.className = "btn-blue";
             btn.innerText = p;
@@ -115,7 +123,6 @@
         });
     }
 
-    // --- 2. 作業者選択 ---
     async function clickStaffSlot() {
         if (!state.proc) return;
         updateUI('staff');
@@ -141,7 +148,6 @@
         } catch(e) { area.innerHTML = "通信エラー"; }
     }
 
-    // --- 3. 装置選択 (M_装置名連動) ---
     async function clickMacSlot() {
         if (!state.staff) return;
         updateUI('mac');
@@ -153,14 +159,15 @@
             const text = await resp.text();
             area.innerHTML = "";
             const list = text ? text.split(',').map(s => s.trim()) : [];
+            
             if (list.length === 1) { 
                 state.mac = list[0]; 
                 updateUI('done'); 
             } else {
                 list.forEach(m => {
                     const btn = document.createElement('button');
-                    btn.className = "btn-blue";
-                    btn.innerText = m;
+                    btn.className = "btn-mac"; // 1行1ボタン用のスタイル
+                    btn.innerText = "▶ " + m;
                     btn.onclick = () => { state.mac = m; updateUI('done'); };
                     area.appendChild(btn);
                 });
@@ -181,11 +188,11 @@
             document.getElementById('slot-' + step).classList.add('active-slot');
             document.getElementById('final-btn').style.display = "none";
         } else {
-            document.getElementById('button-area').innerHTML = "確認して登録ボタンを押してください。";
+            document.getElementById('button-area').innerHTML = "<div style='padding:10px; color:#28a745; font-weight:bold;'>完了しました。下の登録ボタンを押してください。</div>";
             document.getElementById('final-btn').style.display = "block";
         }
         
-        const titles = { proc: "工程を選んでください", staff: "作業者を選んでください", mac: "装置を選んでください", done: "登録確認" };
+        const titles = { proc: "1. 工程を選んでください", staff: "2. 作業者を選んでください", mac: "3. 装置を選んでください", done: "登録確認" };
         document.getElementById('button-title').innerText = titles[step];
     }
 
@@ -202,15 +209,17 @@
         const scanner = new Html5Qrcode("reader");
         await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => {
             scanner.stop().then(() => onScanSuccess(txt));
-        });
+        }).catch(err => { alert("カメラ起動エラー"); location.reload(); });
     }
 
     async function loadConfigScreen() {
         const area = document.getElementById('configList');
-        const resp = await fetch(`${GAS_URL}?action=getAllProcesses`);
-        const data = await resp.json();
-        area.innerHTML = data.map(p => `<label class="checkbox-item"><input type="checkbox" value="${p}"> ${p}</label>`).join('');
-        showScreen('screenConfig');
+        try {
+            const resp = await fetch(`${GAS_URL}?action=getAllProcesses`);
+            const data = await resp.json();
+            area.innerHTML = data.map(p => `<label class="checkbox-item"><input type="checkbox" value="${p}"> ${p}</label>`).join('');
+            showScreen('screenConfig');
+        } catch(e) { alert("データ取得失敗"); }
     }
 
     async function saveConfig() {
