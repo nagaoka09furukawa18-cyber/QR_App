@@ -1,165 +1,98 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>生産進捗管理システム</title>
-    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <style>
-        body { font-family: -apple-system, sans-serif; text-align: center; background: #f4f7f9; padding: 15px; margin: 0; color: #333; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
-        .screen { display: none; }
-        .active { display: block; }
-        button { width: 100%; padding: 18px; margin: 10px 0; font-size: 18px; border-radius: 10px; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn-blue { background: #007bff; color: white; }
-        .btn-blue:active { background: #0056b3; }
-        .btn-green { background: #28a745; color: white; }
-        .btn-gray { background: #6c757d; color: white; }
-        #configList { text-align: left; margin: 15px 0; border: 1px solid #ddd; padding: 10px; border-radius: 8px; max-height: 400px; overflow-y: auto; background: #fff; }
-        .checkbox-item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee; font-size: 18px; }
-        .checkbox-item input { transform: scale(1.5); margin-right: 15px; }
-        .device-id { font-size: 11px; color: #aaa; margin-top: 20px; letter-spacing: 1px; }
-        #currentStation { background: #e7f3ff; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; color: #007bff; }
-    </style>
-</head>
-<body>
+// QR読取成功後の処理
+async function onScanSuccess(decodedText) {
+    const tehaiNo = decodedText;
+    showScreen('screenDetail');
+    
+    // 画面上部に手配Noを大きく表示
+    document.getElementById('scannedNoText').innerHTML = `
+        <div style="font-size:14px; color:#666;">読み取り完了</div>
+        <div style="font-size:28px; color:#007bff; font-weight:bold; margin-bottom:10px;">No: ${tehaiNo}</div>
+    `;
 
-<div class="card">
-    <div id="screenMain" class="screen">
-        <h2 style="margin-top:0;">生産進捗スキャン</h2>
-        <div id="currentStation">担当工程を読み込み中...</div>
-        <button class="btn-blue" onclick="startScan()">手配No. 読み取り開始</button>
-        <hr style="border:0; border-top:1px solid #eee; margin:20px 0;">
-        <button class="btn-gray" onclick="loadConfigScreen()" style="font-size: 14px; padding:10px;">管理者設定（担当工程の変更）</button>
-        <div id="displayId" class="device-id"></div>
-    </div>
+    // 1. 工程選択ボタンの表示
+    renderProcessButtons(tehaiNo);
+}
 
-    <div id="screenConfig" class="screen">
-        <h3 style="margin-top:0;">端末担当設定</h3>
-        <p style="font-size:14px; color:#666;">この端末が担当する工程を選択してください</p>
-        <div id="configList">工程リストを取得中...</div>
-        <button class="btn-green" onclick="saveConfig()">設定を保存する</button>
-        <button class="btn-gray" onclick="init()">キャンセル</button>
-    </div>
+// ステップ1：工程ボタンを表示（端末設定に基づき、まず工程を確定させる）
+function renderProcessButtons(tehaiNo) {
+    const area = document.getElementById('flowButtons');
+    area.innerHTML = "<h4 style='border-left:4px solid #007bff; padding-left:10px; text-align:left;'>1. 工程を確定してください</h4>";
+    
+    const myStations = localStorage.getItem('myStations').split(',');
+    
+    myStations.forEach(proc => {
+        const btn = document.createElement('button');
+        btn.className = "btn-blue";
+        btn.style.marginBottom = "10px";
+        btn.innerText = proc;
+        // タップしたらその工程を「確定」して作業者選択へ
+        btn.onclick = () => loadStaffSelection(tehaiNo, proc);
+        area.appendChild(btn);
+    });
+}
 
-    <div id="screenScanner" class="screen">
-        <h3>QRコードをスキャン</h3>
-        <div id="reader" style="width:100%;"></div>
-        <button class="btn-gray" onclick="location.reload()">キャンセル</button>
-    </div>
+// ステップ2：作業者選択（確定した工程 proc に基づきリストを取得）
+async function loadStaffSelection(tehaiNo, proc) {
+    const area = document.getElementById('flowButtons');
+    // 選択済みの工程を表示しつつ、作業者選択へ
+    area.innerHTML = `
+        <div style="background:#e7f3ff; padding:10px; border-radius:8px; margin-bottom:15px; text-align:left;">
+            <small>選択中の工程:</small> <strong>${proc}</strong>
+        </div>
+        <h4 style="border-left:4px solid #28a745; padding-left:10px; text-align:left;">2. 作業者を選択</h4>
+        <div id="staffLoading">リスト取得中...</div>
+    `;
 
-    <div id="screenDetail" class="screen">
-        <h3 id="scannedNoText"></h3>
-        <div id="flowButtons"></div>
-        <button class="btn-gray" onclick="location.reload()">やり直す</button>
-    </div>
-</div>
+    try {
+        // GASから M_作業者 シートのデータを取得
+        const resp = await fetch(`${GAS_URL}?action=getStaffs&process=${encodeURIComponent(proc)}`);
+        const staffText = await resp.text(); 
+        document.getElementById('staffLoading').remove();
 
-<script>
-    // ★発行されたGAS URLを埋め込みました
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbyj1hRe31gDBBSFA6K2HZ1MaFWhE477HnuTiNZhCvvY6PLtwBhMz7mMfRi4pQt7vCtx/exec"; 
-
-    // 1. 端末IDの自動生成（一度作ったらスマホがずっと覚えている）
-    let deviceId = localStorage.getItem('deviceId');
-    if (!deviceId) {
-        deviceId = 'ID-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-        localStorage.setItem('deviceId', deviceId);
-    }
-
-    // アプリ起動時の初期化
-    async function init() {
-        document.getElementById('displayId').innerText = "端末ID: " + deviceId;
-        
-        try {
-            // GASへ現在の端末設定を問い合わせ
-            const resp = await fetch(`${GAS_URL}?action=getDeviceConfig&deviceId=${deviceId}`);
-            const config = await resp.text();
-            
-            if (!config || config === "") {
-                // 設定がなければ設定画面を強制表示
-                loadConfigScreen(); 
-            } else {
-                localStorage.setItem('myStations', config);
-                document.getElementById('currentStation').innerText = "担当: " + config.replace(/,/g, " / ");
-                showScreen('screenMain');
-            }
-        } catch (e) {
-            console.error("通信エラー", e);
-            document.getElementById('currentStation').innerText = "通信エラー：設定を確認してください";
-            showScreen('screenMain');
+        if (!staffText) {
+            area.innerHTML += "<p style='color:red;'>作業者が登録されていません</p>";
+            return;
         }
-    }
 
-    function showScreen(id) {
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-    }
+        const staffArray = staffText.split(',').map(s => s.trim());
 
-    // 全工程リストをGASから取得して表示
-    async function loadConfigScreen() {
-        showScreen('screenConfig');
-        const listArea = document.getElementById('configList');
-        listArea.innerHTML = "工程リストを取得中...";
-
-        try {
-            const resp = await fetch(`${GAS_URL}?action=getAllProcesses`);
-            const processes = await resp.json();
+        if (staffArray.length === 1) {
+            // 作業者が1人の場合は表示のみ
+            const div = document.createElement('div');
+            div.className = "result-box"; // 以前作った枠線スタイル
+            div.style.background = "#fff";
+            div.innerText = staffArray[0];
+            area.appendChild(div);
             
-            listArea.innerHTML = "";
-            const savedConfig = localStorage.getItem('myStations') || "";
-            const savedArray = savedConfig.split(',');
-
-            processes.forEach(p => {
-                const checked = savedArray.includes(p) ? "checked" : "";
-                listArea.innerHTML += `
-                    <label class="checkbox-item">
-                        <input type="checkbox" value="${p}" ${checked}> ${p}
-                    </label>`;
+            // 次のステップ（装置選択）へ自動遷移（0.8秒後）
+            setTimeout(() => loadMachineSelection(tehaiNo, proc, staffArray[0]), 800);
+        } else {
+            // 複数の場合はボタンを作成
+            staffArray.forEach(name => {
+                const btn = document.createElement('button');
+                btn.className = "btn-green"; // 色を変えて区別
+                btn.style.marginBottom = "10px";
+                btn.innerText = name;
+                btn.onclick = () => loadMachineSelection(tehaiNo, proc, name);
+                area.appendChild(btn);
             });
-        } catch (e) {
-            listArea.innerHTML = "エラー: 工程リストを取得できませんでした。スプレッドシートのシート名やGASのデプロイ設定を確認してください。";
         }
+    } catch (e) {
+        area.innerHTML += "<p>通信エラーが発生しました</p>";
     }
+}
 
-    // 設定を保存
-    async function saveConfig() {
-        const selected = Array.from(document.querySelectorAll('#configList input:checked')).map(i => i.value);
-        if (selected.length === 0) return alert("工程を1つ以上選択してください");
-
-        const processList = selected.join(',');
-        
-        try {
-            // no-corsモードで送信
-            fetch(`${GAS_URL}?action=saveDeviceConfig&deviceId=${deviceId}&processList=${encodeURIComponent(processList)}`, {mode: 'no-cors'});
-            
-            // 即座にローカルも更新して反映
-            localStorage.setItem('myStations', processList);
-            alert("設定を送信しました。反映まで数秒かかる場合があります。");
-            init();
-        } catch (e) {
-            alert("保存に失敗しました");
-        }
-    }
-
-    // スキャン
-    async function startScan() {
-        showScreen('screenScanner');
-        const html5QrCode = new Html5Qrcode("reader");
-        await html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, 
-            (decodedText) => {
-                html5QrCode.stop().then(() => {
-                    alert("手配No. を読み取りました: " + decodedText + "\n※この後の詳細選択は次のステップで実装します！");
-                    location.reload(); 
-                });
-            }
-        ).catch(err => {
-            alert("カメラ起動エラー: " + err);
-            location.reload();
-        });
-    }
-
-    // 起動
-    init();
-</script>
-</body>
-</html>
+// ステップ3：装置選択（仮の実装）
+function loadMachineSelection(tehaiNo, proc, staff) {
+    const area = document.getElementById('flowButtons');
+    area.innerHTML = `
+        <div style="background:#e7f3ff; padding:10px; border-radius:8px; margin-bottom:15px; text-align:left;">
+            <div><small>手配No:</small> <strong>${tehaiNo}</strong></div>
+            <div><small>工程:</small> <strong>${proc}</strong></div>
+            <div><small>作業者:</small> <strong>${staff}</strong></div>
+        </div>
+        <h4 style="border-left:4px solid #ffc107; padding-left:10px; text-align:left;">3. 装置を選択</h4>
+        <p>※装置マスタ連動は次のステップで実装</p>
+        <button class="btn-gray" onclick="location.reload()">やり直す</button>
+    `;
+}
