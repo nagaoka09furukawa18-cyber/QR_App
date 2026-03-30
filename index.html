@@ -99,25 +99,32 @@
     let deviceId = localStorage.getItem('deviceId') || 'ID-' + Math.random().toString(36).substring(2, 8).toUpperCase();
     localStorage.setItem('deviceId', deviceId);
 
-    async function init() {
+  async function init() {
         showScreen('screenWait'); 
         document.getElementById('displayId').innerText = "端末ID: " + deviceId;
+
+        // 【安全策】3秒経っても通信が終わらなければ、強制的にメイン画面へ進める
+        const forceShow = setTimeout(() => {
+            showScreen('screenMain');
+        }, 3000);
+
         try {
             const resp = await fetch(`${GAS_URL}?action=getAllMasters&deviceId=${deviceId}`);
             masters = await resp.json();
-            if (masters.device) {
+            
+            if (masters && masters.device) {
                 updateStationDisplay(masters.device.name, masters.device.config);
                 document.getElementById('btnStartScan').style.display = "block";
             } else {
-                document.getElementById('currentStation').innerHTML = "<span style='color:red;'>⚠️端末未登録です</span>";
+                // device: null の場合でも、エラーで止めずメッセージを出すだけにする
+                document.getElementById('currentStation').innerHTML = "<span style='color:red;'>⚠️端末未登録</span>";
             }
         } catch(e) {
-            const sc = localStorage.getItem('myStations');
-            if(sc) {
-                updateStationDisplay(localStorage.getItem('deviceName'), sc);
-                document.getElementById('btnStartScan').style.display = "block";
-            }
+            console.error("Init Error:", e);
         }
+
+        // 正常に終わればタイマーを解除して画面表示
+        clearTimeout(forceShow);
         showScreen('screenMain');
     }
 
