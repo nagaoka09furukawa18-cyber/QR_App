@@ -23,6 +23,7 @@
         .select-slot.active-slot { border-color: #007bff; background: #f0f7ff; box-shadow: 0 0 8px rgba(0,123,255,0.2); }
         .select-slot.disabled { background: #f9f9f9; color: #aaa; cursor: not-allowed; border-style: dashed; }
         #button-container { background: #fdfdfd; border: 1px solid #eee; border-radius: 10px; padding: 10px; margin-top: 15px; min-height: 80px; }
+        #button-area { display: flex; flex-wrap: wrap; justify-content: center; }
         #button-title { font-size: 14px; color: #444; margin-bottom: 10px; font-weight: bold; }
         .config-disabled { opacity: 0.4; pointer-events: none; }
         .device-id { font-size: 10px; color: #ccc; margin-top: 20px; }
@@ -93,32 +94,31 @@
 </div>
 
 <script>
-    const GAS_URL = "ここにデプロイ後のURLを貼ってください"; 
+    // 指定されたGAS URLを埋め込み済み
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbyj1hRe31gDBBSFA6K2HZ1MaFWhE477HnuTiNZhCvvY6PLtwBhMz7mMfRi4pQt7vCtx/exec"; 
+    
     let state = { tehai: '', proc: '', staff: '', mac: '', targetRow: -1 };
     let masters = { processes: [], staffs: [], machines: [], device: null };
     let deviceId = localStorage.getItem('deviceId') || 'ID-' + Math.random().toString(36).substring(2, 8).toUpperCase();
     localStorage.setItem('deviceId', deviceId);
 
-  async function init() {
-        // 1. 待機画面を出す
+    async function init() {
         showScreen('screenWait'); 
         document.getElementById('displayId').innerText = "端末ID: " + deviceId;
 
         try {
-            // 2. データを取る（失敗しても無視する）
             const resp = await fetch(`${GAS_URL}?action=getAllMasters&deviceId=${deviceId}`);
-            const data = await resp.json();
-            masters = data; // ここでグローバル変数に代入
+            masters = await resp.json();
             
-            // 3. 端末情報があれば表示（なければ何もしない）
             if (masters && masters.device) {
                 updateStationDisplay(masters.device.name, masters.device.config);
+                document.getElementById('btnStartScan').style.display = "block";
+            } else {
+                document.getElementById('currentStation').innerHTML = "<span style='color:red;'>⚠️端末未登録です</span>";
             }
         } catch(e) {
-            console.error("通信失敗:", e);
+            console.error("Init Error:", e);
         }
-
-        // 4. 【絶対実行】何があってもメイン画面へ切り替える
         showScreen('screenMain');
     }
 
@@ -140,13 +140,11 @@
 
     function authAdmin() {
         document.getElementById('adminPwInput').value = "";
-        // チェックボックスをリセット
         if(document.getElementById('showPwCheck')) document.getElementById('showPwCheck').checked = false;
         document.getElementById('adminPwInput').type = "password";
         showScreen('screenAuth');
     }
 
-    // 【修正】パスワード表示切り替え関数
     function togglePasswordVisibility() {
         const pwInput = document.getElementById('adminPwInput');
         const check = document.getElementById('showPwCheck');
@@ -238,22 +236,19 @@
         });
     }
 
-    // 【修正】作業者選択の判定ロジックを強化
     function clickStaffSlot() {
         if (!state.proc) return;
         updateUI('staff');
         const area = document.getElementById('button-area');
         area.innerHTML = "";
 
-        // masters.staffs から該当工程の作業者を抽出（空白除去を徹底）
         const filtered = masters.staffs.filter(r => String(r[0]).trim() === String(state.proc).trim());
         const list = filtered.map(r => String(r[1]).split(',').map(s => s.trim())).flat().filter(Boolean);
         
         if (list.length === 0) {
-            // 作業者がいない場合は「-」をセットして次へ
             state.staff = "-";
             setTimeout(clickMacSlot, 50);
-        } else if (list.length === 1 && list[0] !== "") { 
+        } else if (list.length === 1) { 
             state.staff = list[0]; 
             setTimeout(clickMacSlot, 100);
         } else {
@@ -269,4 +264,102 @@
     function clickMacSlot() {
         if (!state.staff) return;
         updateUI('mac');
-        const area = document
+        const area = document.getElementById('button-area');
+        area.innerHTML = "";
+
+        const filtered = masters.machines.filter(r => 
+            String(r[0]).trim() === String(state.proc).trim() && 
+            String(r[1]).includes(state.staff)
+        );
+        const list = filtered.map(r => String(r[2]).split(',').map(s => s.trim())).flat().filter(Boolean);
+
+        if (list.length === 0) {
+            state.mac = "-";
+            checkWorkStatus();
+        } else if (list.length === 1) {
+            state.mac = list[0];
+            checkWorkStatus();
+        } else {
+            list.forEach(m => {
+                const btn = document.createElement('button');
+                btn.className = "btn-blue btn-mac"; 
+                btn.innerText = m;
+                btn.onclick = () => { state.mac = m; checkWorkStatus(); };
+                area.appendChild(btn);
+            });
+        }
+    }
+
+    async function checkWorkStatus() {
+        updateUI('submit');
+        const area = document.getElementById('button-area');
+        area.innerHTML = "<p>状態確認中...</p>";
+
+        try {
+            const resp = await fetch(`${GAS_URL}?action=checkWorkStatus&tehaiNo=${state.tehai}&process=${encodeURIComponent(state.proc)}`);
+            const res = await resp.json();
+            state.targetRow = res.row;
+
+            area.innerHTML = "";
+            const btn = document.createElement('button');
+            btn.className = "btn-main";
+            if (res.status === "readyToEnd") {
+                btn.innerText = "完了報告を送る";
+                btn.className += " btn-green";
+                btn.onclick = () => saveRecord("end");
+            } else {
+                btn.innerText = "開始報告を送る";
+                btn.className += " btn-blue";
+                btn.onclick = () => saveRecord("start");
+            }
+            area.appendChild(btn);
+        } catch(e) { 
+            area.innerHTML = "<p style='color:red;'>エラーが発生しました</p>"; 
+        }
+    }
+
+    async function saveRecord(type) {
+        const area = document.getElementById('button-area');
+        area.innerHTML = "<p>送信中...</p>";
+        try {
+            const url = `${GAS_URL}?action=saveWorkRecord&type=${type}&tehaiNo=${state.tehai}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&row=${state.targetRow}&deviceId=${deviceId}`;
+            await fetch(url, {mode: 'no-cors'});
+            alert("送信しました");
+            resetToMain();
+        } catch(e) { 
+            alert("送信失敗"); 
+            checkWorkStatus();
+        }
+    }
+
+    function updateUI(step) {
+        const slots = {
+            proc: document.getElementById('slot-proc'),
+            staff: document.getElementById('slot-staff'),
+            mac: document.getElementById('slot-mac')
+        };
+        const vals = {
+            proc: document.getElementById('val-proc'),
+            staff: document.getElementById('val-staff'),
+            mac: document.getElementById('val-mac')
+        };
+
+        Object.keys(slots).forEach(key => {
+            slots[key].classList.remove('active-slot');
+            slots[key].classList.add('disabled');
+        });
+
+        vals.proc.innerText = state.proc || "---";
+        vals.staff.innerText = state.staff || "---";
+        vals.mac.innerText = state.mac || "---";
+
+        if (step === 'proc') { slots.proc.classList.add('active-slot'); slots.proc.classList.remove('disabled'); document.getElementById('button-title').innerText = "工程を選択してください"; }
+        if (step === 'staff') { slots.staff.classList.add('active-slot'); slots.staff.classList.remove('disabled'); document.getElementById('button-title').innerText = "作業者を選択してください"; }
+        if (step === 'mac') { slots.mac.classList.add('active-slot'); slots.mac.classList.remove('disabled'); document.getElementById('button-title').innerText = "装置を選択してください"; }
+        if (step === 'submit') { document.getElementById('button-title').innerText = "報告内容を確認してください"; }
+    }
+
+    window.onload = init;
+</script>
+</body>
+</html>
