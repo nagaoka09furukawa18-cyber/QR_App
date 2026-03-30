@@ -50,6 +50,10 @@
     <div id="screenAuth" class="screen">
         <h3>管理者認証</h3>
         <input type="password" id="adminPwInput" placeholder="パスワードを入力">
+        <div style="margin-top:10px; text-align:left; display:inline-block; font-size:14px;">
+            <input type="checkbox" id="showPwCheck" onclick="togglePasswordVisibility()"> 
+            <label for="showPwCheck">パスワードを表示する</label>
+        </div>
         <div style="margin-top:20px;">
             <button class="btn-blue" onclick="checkPassword()">ログイン</button>
             <button class="btn-gray" onclick="resetToMain()">キャンセル</button>
@@ -135,7 +139,17 @@
 
     function authAdmin() {
         document.getElementById('adminPwInput').value = "";
+        // チェックボックスをリセット
+        if(document.getElementById('showPwCheck')) document.getElementById('showPwCheck').checked = false;
+        document.getElementById('adminPwInput').type = "password";
         showScreen('screenAuth');
+    }
+
+    // 【修正】パスワード表示切り替え関数
+    function togglePasswordVisibility() {
+        const pwInput = document.getElementById('adminPwInput');
+        const check = document.getElementById('showPwCheck');
+        pwInput.type = check.checked ? "text" : "password";
     }
 
     async function checkPassword() {
@@ -204,7 +218,6 @@
         clickProcSlot();
     }
 
-    // 工程選択
     function clickProcSlot() {
         updateUI('proc');
         const area = document.getElementById('button-area');
@@ -224,19 +237,24 @@
         });
     }
 
-    // 作業者選択
+    // 【修正】作業者選択の判定ロジックを強化
     function clickStaffSlot() {
         if (!state.proc) return;
         updateUI('staff');
         const area = document.getElementById('button-area');
         area.innerHTML = "";
-        // masters.staffs から該当工程の作業者を取得
-        const list = masters.staffs.filter(r => r[0] === state.proc).map(r => r[1].toString().split(',').map(s => s.trim())).flat();
+
+        // masters.staffs から該当工程の作業者を抽出（空白除去を徹底）
+        const filtered = masters.staffs.filter(r => String(r[0]).trim() === String(state.proc).trim());
+        const list = filtered.map(r => String(r[1]).split(',').map(s => s.trim())).flat().filter(Boolean);
         
-        if (list.length === 1 && list[0] !== "") { 
-            state.staff = list[0]; 
-            // 直接呼ぶと描画が追いつかず固まる場合があるため、わずかに遅延させる
+        if (list.length === 0) {
+            // 作業者がいない場合は「-」をセットして次へ
+            state.staff = "-";
             setTimeout(clickMacSlot, 50);
+        } else if (list.length === 1 && list[0] !== "") { 
+            state.staff = list[0]; 
+            setTimeout(clickMacSlot, 100);
         } else {
             list.forEach(s => {
                 const btn = document.createElement('button');
@@ -247,109 +265,7 @@
         }
     }
 
-    // 装置選択
     function clickMacSlot() {
         if (!state.staff) return;
         updateUI('mac');
-        const area = document.getElementById('button-area');
-        area.innerHTML = "";
-        let machineList = [];
-        masters.machines.forEach(r => {
-            if (r[0] === state.proc && r[1].toString().includes(state.staff)) {
-                machineList = machineList.concat(r[2].toString().split(',').map(m => m.trim()));
-            }
-        });
-        const unique = [...new Set(machineList)].filter(Boolean);
-        
-        const finalize = async (m) => { 
-            state.mac = m; 
-            updateUI('done'); 
-            await checkStatus(); 
-        };
-
-        if (unique.length === 1) { 
-            finalize(unique[0]); 
-        } else if (unique.length === 0) { 
-            finalize("-"); 
-        } else {
-            unique.forEach(m => {
-                const btn = document.createElement('button');
-                btn.className = "btn-mac"; btn.innerText = "▶ " + m;
-                btn.onclick = () => finalize(m);
-                area.appendChild(btn);
-            });
-        }
-    }
-
-    // ステータス確認
-    async function checkStatus() {
-        const area = document.getElementById('button-area');
-        area.innerHTML = "<div class='loading-spinner'></div><p>工程の状態を確認中...</p>";
-        try {
-            const url = `${GAS_URL}?action=checkWorkStatus&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}`;
-            const resp = await fetch(url);
-            const res = await resp.json();
-            if (res.status === "readyToEnd") {
-                // 開始済みの場合は、その時の作業者と装置をセットして終了ボタンへ
-                state.staff = res.staff; 
-                state.mac = res.machine; 
-                state.targetRow = res.row;
-                updateUI('done');
-                showFinalButton("end");
-            } else {
-                // 未開始の場合は開始ボタンへ
-                showFinalButton("start", -1);
-            }
-        } catch(e) { 
-            showFinalButton("start", -1); 
-        }
-    }
-
-    function showFinalButton(type, row) {
-        if(row !== undefined && row !== -1) state.targetRow = row;
-        const area = document.getElementById('button-area');
-        area.innerHTML = "";
-        const btn = document.createElement('button');
-        btn.className = (type === "end") ? "btn-blue btn-main" : "btn-green btn-main";
-        btn.innerText = (type === "end") ? "■ 作業終了を登録" : "▶ 作業開始を登録";
-        btn.onclick = () => submitWork(type);
-        area.appendChild(btn);
-    }
-
-    async function submitWork(type) {
-        if(!confirm((type === "start" ? "開始" : "終了") + "を登録しますか？")) return;
-        const area = document.getElementById('button-area');
-        area.innerHTML = "<div class='loading-spinner'></div><p>登録中...</p>";
-        try {
-            const url = `${GAS_URL}?action=saveWorkRecord&type=${type}&row=${state.targetRow}&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
-            const resp = await fetch(url);
-            const res = await resp.text();
-            if(res.includes("Success")) { 
-                resetToMain(); 
-            } else { 
-                alert("保存失敗: " + res); 
-                updateUI('done'); // 失敗時は確認画面に戻す
-                checkStatus(); 
-            }
-        } catch(e) { alert("通信エラーが発生しました"); }
-    }
-
-    function updateUI(step) {
-        document.getElementById('val-proc').innerText = state.proc || "未選択";
-        document.getElementById('val-staff').innerText = state.staff || (state.proc ? "選択中..." : "---");
-        document.getElementById('val-mac').innerText = state.mac || (state.staff ? "選択中..." : "---");
-        
-        document.getElementById('slot-staff').className = state.proc ? "select-slot" : "select-slot disabled";
-        document.getElementById('slot-mac').className = state.staff ? "select-slot" : "select-slot disabled";
-        
-        document.querySelectorAll('.select-slot').forEach(s => s.classList.remove('active-slot'));
-        if (step !== 'done') document.getElementById('slot-' + step).classList.add('active-slot');
-        
-        const ts = { proc: "工程名を選択してください", staff: "作業者を選択してください", mac: "装置名を選択してください", done: "登録内容の確認" };
-        document.getElementById('button-title').innerText = ts[step] || "";
-    }
-
-    init();
-</script>
-</body>
-</html>
+        const area = document
