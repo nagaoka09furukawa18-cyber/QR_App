@@ -313,16 +313,20 @@
         area.appendChild(btn);
     }
 
-    async function submitWork(type) {
-        // ここに確認メッセージを残しました
+  async function submitWork(type) {
         const msg = (type === "start") ? "作業を開始しますか？" : "作業を終了しますか？";
         if(!confirm(msg)) return;
         try {
             const url = `${GAS_URL}?action=saveWorkRecord&type=${type}&row=${state.targetRow}&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
+            
+            // 保存処理を実行
             await fetch(url);
-            alert("保存しました");
-            location.reload();
-        } catch(e) { alert("保存失敗"); }
+            
+            // 「保存しました」のアラートを削除し、即座にリロードしてメインに戻る
+            location.reload(); 
+        } catch(e) { 
+            alert("保存失敗: 通信環境を確認してください"); 
+        }
     }
 
     function updateUI(step) {
