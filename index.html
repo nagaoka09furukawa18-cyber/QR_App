@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>生産進捗管理システム</title>
+    <title>加工進捗管理</title>
     <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; text-align: center; background: #f4f7f9; padding: 10px; margin: 0; color: #333; }
@@ -16,12 +16,18 @@
         .btn-gray { background: #6c757d; color: white; }
         .btn-main { width: 100%; padding: 18px; font-size: 18px; margin: 10px 0; display: block; }
         .btn-mac { width: 100%; display: block; text-align: left; padding: 15px 20px; margin: 8px 0; background: #007bff; color: white; border-radius: 8px; font-size: 16px; }
-        .select-slot { background: #fff; border: 2px solid #e0e0e0; padding: 10px; margin: 8px 0; border-radius: 8px; text-align: left; font-size: 14px; cursor: pointer; }
-        .select-slot strong { color: #007bff; font-size: 16px; }
-        .select-slot.active-slot { border-color: #007bff; background: #f0f7ff; }
+        
+        /* 手配No表示を強調 */
+        #tehaiDisplay { font-size: 28px; font-weight: 900; margin-bottom: 15px; color: #000; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+        
+        .select-slot { background: #fff; border: 2px solid #e0e0e0; padding: 12px; margin: 8px 0; border-radius: 8px; text-align: left; font-size: 15px; cursor: pointer; }
+        .select-slot strong { color: #007bff; font-size: 17px; margin-left: 10px; }
+        .select-slot.active-slot { border-color: #007bff; background: #f0f7ff; box-shadow: 0 0 8px rgba(0,123,255,0.2); }
         .select-slot.disabled { background: #f9f9f9; color: #aaa; cursor: not-allowed; border-style: dashed; }
+        
         #button-container { background: #fdfdfd; border: 1px solid #eee; border-radius: 10px; padding: 10px; margin-top: 15px; min-height: 80px; }
-        #button-title { font-size: 13px; color: #666; margin-bottom: 10px; font-weight: bold; }
+        #button-title { font-size: 14px; color: #444; margin-bottom: 10px; font-weight: bold; }
+        
         .config-disabled { opacity: 0.4; pointer-events: none; }
         .device-id { font-size: 10px; color: #ccc; margin-top: 20px; }
         input[type="text"], input[type="password"] { width: 100%; padding: 12px; margin: 5px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
@@ -32,17 +38,16 @@
 
 <div class="card">
     <div id="screenMain" class="screen">
-        <h2>生産進捗スキャン</h2>
-        <div id="currentStation" style="margin-bottom:15px; font-weight:bold; color:#007bff; white-space: pre-wrap;">読込中...</div>
+        <h2>加工進捗管理</h2>
+        <div id="currentStation" style="margin-bottom:20px; font-weight:bold; color:#007bff; white-space: pre-wrap; line-height: 1.6;">読込中...</div>
         <button id="btnStartScan" class="btn-blue btn-main" style="display:none;" onclick="startScan()">QRスキャン開始</button>
-        <button class="btn-gray" onclick="authAdmin()" style="font-size:12px; margin-top:30px;">管理者設定</button>
+        <button class="btn-gray" onclick="authAdmin()" style="font-size:12px; margin-top:40px;">管理者設定</button>
         <div id="displayId" class="device-id"></div>
     </div>
 
     <div id="screenAuth" class="screen">
         <h3>管理者認証</h3>
         <input type="password" id="adminPwInput" placeholder="パスワードを入力">
-        <label style="font-size:12px;"><input type="checkbox" onchange="document.getElementById('adminPwInput').type = this.checked ? 'text' : 'password'"> パスワードを表示</label>
         <div style="margin-top:20px;">
             <button class="btn-blue" onclick="checkPassword()">ログイン</button>
             <button class="btn-gray" onclick="resetToMain()">キャンセル</button>
@@ -53,22 +58,15 @@
         <h3>端末詳細設定</h3>
         <div style="text-align:left; margin-bottom:15px;">
             <label style="font-size:12px; font-weight:bold;">端末名 (入力必須):</label>
-            <input type="text" id="inputDeviceName" placeholder="例: ラインA-1" oninput="toggleConfigList()">
+            <input type="text" id="inputDeviceName" placeholder="例: マシニング1号" oninput="toggleConfigList()">
         </div>
         
         <div id="configWrapper" class="config-disabled">
-            <p style="font-size:11px; color:#666; text-align:left; margin:0;">担当工程を選択 (複数選択可)：</p>
+            <p style="font-size:11px; color:#666; text-align:left; margin:0;">担当工程を選択：</p>
             <div id="configList" style="margin-bottom:15px; padding:10px; border:1px solid #eee; background:#fff; min-height:100px; text-align:left;">取得中...</div>
         </div>
 
-        <button class="btn-green btn-main" onclick="saveConfig()">設定完了 (メインに戻る)</button>
-        
-        <hr style="margin:20px 0;">
-        <div style="text-align:left;">
-            <label style="font-size:12px; color:#666;">パスワード変更:</label>
-            <input type="password" id="newAdminPw" placeholder="新しいパスワード">
-            <button class="btn-gray" onclick="updatePassword()" style="width:100%;">パスワードを更新</button>
-        </div>
+        <button class="btn-green btn-main" onclick="saveConfig()">設定完了 (戻る)</button>
     </div>
 
     <div id="screenScanner" class="screen">
@@ -78,15 +76,16 @@
     </div>
 
     <div id="screenDetail" class="screen">
-        <div id="tehaiDisplay" style="font-size:20px; font-weight:bold; margin-bottom:10px;"></div>
-        <div id="slot-proc" class="select-slot" onclick="clickProcSlot()">工程: <strong id="val-proc"></strong></div>
+        <div id="tehaiDisplay"></div>
+        <div id="slot-proc" class="select-slot" onclick="clickProcSlot()">工程名: <strong id="val-proc"></strong></div>
         <div id="slot-staff" class="select-slot disabled" onclick="clickStaffSlot()">作業者: <strong id="val-staff"></strong></div>
-        <div id="slot-mac" class="select-slot disabled" onclick="clickMacSlot()">装置: <strong id="val-mac"></strong></div>
+        <div id="slot-mac" class="select-slot disabled" onclick="clickMacSlot()">装置名: <strong id="val-mac"></strong></div>
+        
         <div id="button-container">
             <div id="button-title"></div>
             <div id="button-area"></div>
         </div>
-        <button class="btn-gray" onclick="resetToMain()" style="margin-top:20px; font-size:12px;">最初からやり直す</button>
+        <button class="btn-gray" onclick="resetToMain()" style="margin-top:30px; font-size:12px;">最初からやり直す</button>
     </div>
 </div>
 
@@ -103,28 +102,30 @@
         const startBtn = document.getElementById('btnStartScan');
 
         try {
-            // マスターと端末設定を1回で同時取得
             const resp = await fetch(`${GAS_URL}?action=getAllMasters&deviceId=${deviceId}`);
             masters = await resp.json();
 
-            if (masters.device && masters.device.name) {
-                localStorage.setItem('myStations', masters.device.config);
-                localStorage.setItem('deviceName', masters.device.name);
-                stationLabel.innerText = "端末: " + masters.device.name + "\n担当: " + masters.device.config;
+            if (masters.device) {
+                updateStationDisplay(masters.device.name, masters.device.config);
                 startBtn.style.display = "block";
             } else {
                 stationLabel.innerHTML = "<span style='color:red;'>⚠️端末未登録です</span>";
-                startBtn.style.display = "none";
             }
         } catch(e) {
-            console.error("Fetch error", e);
             const localConfig = localStorage.getItem('myStations');
+            const localName = localStorage.getItem('deviceName');
             if(localConfig) {
-                stationLabel.innerText = "担当: " + localConfig + " (保存済データ)";
+                updateStationDisplay(localName, localConfig);
                 startBtn.style.display = "block";
             }
         }
         showScreen('screenMain');
+    }
+
+    function updateStationDisplay(name, config) {
+        localStorage.setItem('myStations', config);
+        localStorage.setItem('deviceName', name);
+        document.getElementById('currentStation').innerText = "端末名: " + name + "\n担当工程: " + config;
     }
 
     function showScreen(id) {
@@ -132,7 +133,6 @@
         document.getElementById(id).classList.add('active');
     }
 
-    // リロードせずにメインに戻るための関数
     function resetToMain() {
         state = { tehai: '', proc: '', staff: '', mac: '', targetRow: -1 };
         showScreen('screenMain');
@@ -159,8 +159,7 @@
 
     function loadConfigScreen() {
         showScreen('screenConfig');
-        const nameInput = document.getElementById('inputDeviceName');
-        nameInput.value = localStorage.getItem('deviceName') || "";
+        document.getElementById('inputDeviceName').value = localStorage.getItem('deviceName') || "";
         toggleConfigList();
 
         const area = document.getElementById('configList');
@@ -186,24 +185,13 @@
         const name = document.getElementById('inputDeviceName').value.trim();
         const selectedBtns = document.querySelectorAll('#configList button[data-selected="true"]');
         const sel = Array.from(selectedBtns).map(b => b.innerText).join(',');
-        if(!name || !sel) return alert("名前と工程を選択してください");
+        if(!name || !sel) return alert("入力内容を確認してください");
         try {
             await fetch(`${GAS_URL}?action=saveDeviceConfig&deviceId=${deviceId}&deviceName=${encodeURIComponent(name)}&processList=${encodeURIComponent(sel)}`, {mode: 'no-cors'});
-            localStorage.setItem('myStations', sel);
-            localStorage.setItem('deviceName', name);
-            // 設定反映のために再読込
-            init();
-        } catch(e) { alert("通信エラー"); }
-    }
-
-    async function updatePassword() {
-        const newPw = document.getElementById('newAdminPw').value.trim();
-        if(!newPw) return;
-        try {
-            await fetch(`${GAS_URL}?action=updateAdminPassword&newPassword=${encodeURIComponent(newPw)}`);
-            alert("パスワードを更新しました");
-            document.getElementById('newAdminPw').value = "";
-        } catch(e) { alert("更新失敗"); }
+            updateStationDisplay(name, sel);
+            document.getElementById('btnStartScan').style.display = "block";
+            resetToMain();
+        } catch(e) { alert("保存失敗"); }
     }
 
     async function startScan() {
@@ -217,7 +205,7 @@
     function onScanSuccess(no) {
         state = { tehai: no, proc: '', staff: '', mac: '', targetRow: -1 };
         showScreen('screenDetail');
-        document.getElementById('tehaiDisplay').innerText = "手配No: " + no;
+        document.getElementById('tehaiDisplay').innerText = no;
         clickProcSlot();
     }
 
@@ -231,27 +219,13 @@
             const btn = document.createElement('button');
             btn.className = "btn-blue";
             btn.innerText = p.trim();
-            btn.onclick = async () => { 
+            btn.onclick = () => { 
                 state.proc = p.trim(); 
                 state.staff = ''; state.mac = ''; 
-                await checkAutoStatus(); 
+                clickStaffSlot(); 
             };
             area.appendChild(btn);
         });
-    }
-
-    async function checkAutoStatus() {
-        const area = document.getElementById('button-area');
-        area.innerHTML = "状態確認中...";
-        try {
-            const url = `${GAS_URL}?action=checkWorkStatus&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}`;
-            const resp = await fetch(url);
-            const res = await resp.json();
-            if (res.status === "readyToEnd") {
-                state.staff = res.staff; state.mac = res.machine; state.targetRow = res.row;
-                showFinalButton("end");
-            } else { clickStaffSlot(); }
-        } catch(e) { clickStaffSlot(); }
     }
 
     function clickStaffSlot() {
@@ -259,7 +233,6 @@
         updateUI('staff');
         const area = document.getElementById('button-area');
         area.innerHTML = "";
-        // masters.staffs は [工程, 名前] の形式
         const list = masters.staffs
             .filter(r => r[0] === state.proc)
             .map(r => r[1].toString().split(',').map(s => s.trim()))
@@ -283,61 +256,73 @@
         const area = document.getElementById('button-area');
         area.innerHTML = "";
         let machineList = [];
-        // masters.machines は [工程, 作業者, 装置] の形式
         masters.machines.forEach(r => {
             if (r[0] === state.proc && r[1].toString().includes(state.staff)) {
                 machineList = machineList.concat(r[2].toString().split(',').map(m => m.trim()));
             }
         });
         const unique = [...new Set(machineList)].filter(Boolean);
-        if (unique.length === 1) { 
-            state.mac = unique[0]; showFinalButton("start");
-        } else if (unique.length === 0) {
-            state.mac = "-"; showFinalButton("start");
-        } else {
+        const nextAction = async (m) => { state.mac = m; await checkStatus(); };
+
+        if (unique.length === 1) { nextAction(unique[0]); }
+        else if (unique.length === 0) { nextAction("-"); }
+        else {
             unique.forEach(m => {
                 const btn = document.createElement('button');
                 btn.className = "btn-mac"; btn.innerText = "▶ " + m;
-                btn.onclick = () => { state.mac = m; showFinalButton("start"); };
+                btn.onclick = () => nextAction(m);
                 area.appendChild(btn);
             });
         }
     }
 
-    function showFinalButton(type) {
+    async function checkStatus() {
         updateUI('done');
+        const area = document.getElementById('button-area');
+        area.innerHTML = "確認中...";
+        try {
+            const url = `${GAS_URL}?action=checkWorkStatus&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}`;
+            const resp = await fetch(url);
+            const res = await resp.json();
+            showFinalButton(res.status === "readyToEnd" ? "end" : "start", res.row);
+        } catch(e) { showFinalButton("start", -1); }
+    }
+
+    function showFinalButton(type, row) {
+        state.targetRow = row;
         const area = document.getElementById('button-area');
         area.innerHTML = "";
         const btn = document.createElement('button');
         btn.className = (type === "end") ? "btn-blue btn-main" : "btn-green btn-main";
-        btn.innerText = (type === "end") ? "■ 作業終了を記録する" : "▶ 作業開始を記録する";
+        btn.innerText = (type === "end") ? "■ 作業終了を登録" : "▶ 作業開始を登録";
         btn.onclick = () => submitWork(type);
         area.appendChild(btn);
     }
 
     async function submitWork(type) {
-        if(!confirm((type === "start") ? "開始しますか？" : "終了しますか？")) return;
+        if(!confirm((type === "start" ? "開始" : "終了") + "を登録しますか？")) return;
         try {
             const url = `${GAS_URL}?action=saveWorkRecord&type=${type}&row=${state.targetRow}&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
             await fetch(url);
-            alert("記録しました");
-            resetToMain(); // リロードせずにメインに戻る
-        } catch(e) { alert("保存失敗"); }
+            resetToMain();
+        } catch(e) { alert("通信エラー"); }
     }
 
     function updateUI(step) {
-        document.getElementById('val-proc').innerText = state.proc ? `【 ${state.proc} 】` : "未選択";
-        document.getElementById('val-staff').innerText = state.staff ? `【 ${state.staff} 】` : (state.proc ? "選択中..." : "---");
-        document.getElementById('val-mac').innerText = state.mac ? `【 ${state.mac} 】` : (state.staff ? "選択中..." : "---");
+        document.getElementById('val-proc').innerText = state.proc || "未選択";
+        document.getElementById('val-staff').innerText = state.staff || (state.proc ? "選択中..." : "---");
+        document.getElementById('val-mac').innerText = state.mac || (state.staff ? "選択中..." : "---");
+        
         document.getElementById('slot-staff').className = state.proc ? "select-slot" : "select-slot disabled";
         document.getElementById('slot-mac').className = state.staff ? "select-slot" : "select-slot disabled";
+        
         document.querySelectorAll('.select-slot').forEach(s => s.classList.remove('active-slot'));
         if (step !== 'done') document.getElementById('slot-' + step).classList.add('active-slot');
-        const titles = { proc: "1. 工程を選択", staff: "2. 作業者を選択", mac: "3. 装置を選択", done: "4. 実績登録" };
+        
+        const titles = { proc: "工程を選択してください", staff: "作業者を選択してください", mac: "装置名を選択してください", done: "登録内容の確認" };
         document.getElementById('button-title').innerText = titles[step] || "";
     }
 
-    // 初回起動
     init();
 </script>
 </body>
