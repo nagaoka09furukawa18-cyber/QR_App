@@ -109,9 +109,40 @@
             const btn = document.createElement('button');
             btn.className = "btn-blue";
             btn.innerText = p.trim();
-            btn.onclick = () => { state.proc = p.trim(); state.staff = ''; state.mac = ''; clickStaffSlot(); };
+            btn.onclick = async () => { 
+                state.proc = p.trim(); 
+                state.staff = ''; 
+                state.mac = ''; 
+                await checkAutoStatus(); // ★工程選択後、自動判定へ
+            };
             area.appendChild(btn);
         });
+    }
+
+    // ★自動判定ロジック
+    async function checkAutoStatus() {
+        const area = document.getElementById('button-area');
+        area.innerHTML = "<div style='color:#666;'>状態を確認中...</div>";
+        
+        try {
+            const url = `${GAS_URL}?action=checkWorkStatus&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}`;
+            const resp = await fetch(url);
+            const res = await resp.json();
+
+            if (res.status === "readyToEnd") {
+                // すでに開始されている場合
+                state.staff = res.staff;
+                state.mac = res.machine;
+                state.targetRow = res.row;
+                showFinalButton("end");
+            } else {
+                // 開始されていない場合、通常どおり作業者選択へ
+                clickStaffSlot();
+            }
+        } catch(e) { 
+            console.error(e);
+            clickStaffSlot(); // エラー時は手動選択へフォールバック
+        }
     }
 
     async function clickStaffSlot() {
@@ -152,41 +183,35 @@
             const list = text ? text.split(',').map(s => s.trim()) : [];
             if (list.length === 1 && list[0] !== "") { 
                 state.mac = list[0]; 
-                checkStatusAndShowButtons(); 
+                showFinalButton("start"); // 開始ボタンを表示
             } else {
                 list.forEach(m => {
                     const btn = document.createElement('button');
                     btn.className = "btn-mac";
                     btn.innerText = "▶ " + m;
-                    btn.onclick = () => { state.mac = m; checkStatusAndShowButtons(); };
+                    btn.onclick = () => { state.mac = m; showFinalButton("start"); };
                     area.appendChild(btn);
                 });
             }
         } catch(e) { area.innerHTML = "通信エラー"; }
     }
 
-    async function checkStatusAndShowButtons() {
+    // ★ボタン表示共通処理
+    function showFinalButton(type) {
         updateUI('done');
         const area = document.getElementById('button-area');
-        area.innerHTML = "<div style='color:#666;'>状態を確認中...</div>";
-        try {
-            const url = `${GAS_URL}?action=checkWorkStatus&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}`;
-            const resp = await fetch(url);
-            const res = await resp.json();
-            state.targetRow = res.row; 
-            area.innerHTML = "";
-            const btn = document.createElement('button');
-            if (res.status === "readyToEnd") {
-                btn.className = "btn-blue btn-main";
-                btn.innerText = "■ 作業終了を記録する";
-                btn.onclick = () => submitWork("end");
-            } else {
-                btn.className = "btn-green btn-main";
-                btn.innerText = "▶ 作業開始を記録する";
-                btn.onclick = () => submitWork("start");
-            }
-            area.appendChild(btn);
-        } catch(e) { area.innerHTML = "判定エラー"; }
+        area.innerHTML = "";
+        const btn = document.createElement('button');
+        if (type === "end") {
+            btn.className = "btn-blue btn-main";
+            btn.innerText = "■ 作業終了を記録する";
+            btn.onclick = () => submitWork("end");
+        } else {
+            btn.className = "btn-green btn-main";
+            btn.innerText = "▶ 作業開始を記録する";
+            btn.onclick = () => submitWork("start");
+        }
+        area.appendChild(btn);
     }
 
     async function submitWork(type) {
@@ -204,10 +229,13 @@
         document.getElementById('val-proc').innerText = state.proc ? `【 ${state.proc} 】` : "【選択してください】";
         document.getElementById('val-staff').innerText = state.staff ? `【 ${state.staff} 】` : (state.proc ? "【選択中...】" : "【---】");
         document.getElementById('val-mac').innerText = state.mac ? `【 ${state.mac} 】` : (state.staff ? "【選択中...】" : "【---】");
+        
         document.getElementById('slot-staff').className = state.proc ? "select-slot" : "select-slot disabled";
         document.getElementById('slot-mac').className = state.staff ? "select-slot" : "select-slot disabled";
+        
         document.querySelectorAll('.select-slot').forEach(s => s.classList.remove('active-slot'));
         if (step !== 'done') document.getElementById('slot-' + step).classList.add('active-slot');
+        
         const titles = { proc: "1. 工程を選択", staff: "2. 作業者を選択", mac: "3. 装置を選択", done: "4. 実績登録" };
         document.getElementById('button-title').innerText = titles[step] || "";
     }
