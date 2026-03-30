@@ -16,23 +16,17 @@
         .btn-gray { background: #6c757d; color: white; }
         .btn-main { width: 100%; padding: 18px; font-size: 18px; margin: 10px 0; display: block; }
         .btn-mac { width: 100%; display: block; text-align: left; padding: 15px 20px; margin: 8px 0; background: #007bff; color: white; border-radius: 8px; font-size: 16px; }
-        
-        /* 手配Noエリアのデザイン改善 */
         #tehaiDisplay { font-size: 20px; font-weight: bold; margin-bottom: 15px; color: #555; background: #f8f9fa; padding: 10px; border-radius: 8px; }
-        #tehaiDisplay span { color: #000; display: block; margin-top: 5px; } /* 番号本体を改行して巨大化 */
-        
+        #tehaiDisplay span { color: #000; display: block; margin-top: 5px; }
         .select-slot { background: #fff; border: 2px solid #e0e0e0; padding: 12px; margin: 8px 0; border-radius: 8px; text-align: left; font-size: 15px; cursor: pointer; }
         .select-slot strong { color: #007bff; font-size: 18px; margin-left: 10px; }
         .select-slot.active-slot { border-color: #007bff; background: #f0f7ff; box-shadow: 0 0 8px rgba(0,123,255,0.2); }
         .select-slot.disabled { background: #f9f9f9; color: #aaa; cursor: not-allowed; border-style: dashed; }
-        
         #button-container { background: #fdfdfd; border: 1px solid #eee; border-radius: 10px; padding: 10px; margin-top: 15px; min-height: 80px; }
         #button-title { font-size: 14px; color: #444; margin-bottom: 10px; font-weight: bold; }
-        
         .config-disabled { opacity: 0.4; pointer-events: none; }
         .device-id { font-size: 10px; color: #ccc; margin-top: 20px; }
         input[type="text"], input[type="password"] { width: 100%; padding: 12px; margin: 5px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
-        
         .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #007bff; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
@@ -95,7 +89,7 @@
 </div>
 
 <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbyj1hRe31gDBBSFA6K2HZ1MaFWhE477HnuTiNZhCvvY6PLtwBhMz7mMfRi4pQt7vCtx/exec"; 
+    const GAS_URL = "ここにデプロイ後のURLを貼ってください"; 
     let state = { tehai: '', proc: '', staff: '', mac: '', targetRow: -1 };
     let masters = { processes: [], staffs: [], machines: [], device: null };
     let deviceId = localStorage.getItem('deviceId') || 'ID-' + Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -146,9 +140,11 @@
 
     async function checkPassword() {
         const input = document.getElementById('adminPwInput').value;
-        const resp = await fetch(`${GAS_URL}?action=getAdminPassword`);
-        const correct = await resp.text();
-        if (input === correct) { loadConfigScreen(); } else { alert("パスワードが違います"); }
+        try {
+            const resp = await fetch(`${GAS_URL}?action=getAdminPassword`);
+            const res = await resp.json();
+            if (input === res.password) { loadConfigScreen(); } else { alert("パスワードが違います"); }
+        } catch(e) { alert("認証に失敗しました"); }
     }
 
     function toggleConfigList() {
@@ -187,6 +183,7 @@
         try {
             await fetch(`${GAS_URL}?action=saveDeviceConfig&deviceId=${deviceId}&deviceName=${encodeURIComponent(name)}&processList=${encodeURIComponent(sel)}`, {mode: 'no-cors'});
             updateStationDisplay(name, sel);
+            masters.device = { name: name, config: sel };
             document.getElementById('btnStartScan').style.display = "block";
             resetToMain();
         } catch(e) { alert("保存失敗"); }
@@ -203,7 +200,6 @@
     function onScanSuccess(no) {
         state = { tehai: no, proc: '', staff: '', mac: '', targetRow: -1 };
         showScreen('screenDetail');
-        // 【重要】手配No：を復活し、番号部分を大きく表示
         document.getElementById('tehaiDisplay').innerHTML = `手配No：<span style="font-size:36px; font-weight:900;">${no}</span>`;
         clickProcSlot();
     }
@@ -218,28 +214,13 @@
             const btn = document.createElement('button');
             btn.className = "btn-blue";
             btn.innerText = p.trim();
-            btn.onclick = async () => { 
+            btn.onclick = () => { 
                 state.proc = p.trim(); 
                 state.staff = ''; state.mac = ''; 
-                await checkStatus(); 
+                clickStaffSlot(); 
             };
             area.appendChild(btn);
         });
-    }
-
-    async function checkStatus() {
-        const area = document.getElementById('button-area');
-        area.innerHTML = "工程の状態を確認中...";
-        try {
-            const url = `${GAS_URL}?action=checkWorkStatus&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}`;
-            const resp = await fetch(url);
-            const res = await resp.json();
-            if (res.status === "readyToEnd") {
-                state.staff = res.staff; state.mac = res.machine; state.targetRow = res.row;
-                updateUI('done');
-                showFinalButton("end");
-            } else { clickStaffSlot(); }
-        } catch(e) { clickStaffSlot(); }
     }
 
     function clickStaffSlot() {
@@ -272,21 +253,38 @@
             }
         });
         const unique = [...new Set(machineList)].filter(Boolean);
-        const setMacAndDone = (m) => { state.mac = m; updateUI('done'); showFinalButton("start", -1); };
-        if (unique.length === 1) { setMacAndDone(unique[0]); }
-        else if (unique.length === 0) { setMacAndDone("-"); }
+        const finalize = async (m) => { state.mac = m; updateUI('done'); await checkStatus(); };
+        if (unique.length === 1) { finalize(unique[0]); }
+        else if (unique.length === 0) { finalize("-"); }
         else {
             unique.forEach(m => {
                 const btn = document.createElement('button');
                 btn.className = "btn-mac"; btn.innerText = "▶ " + m;
-                btn.onclick = () => setMacAndDone(m);
+                btn.onclick = () => finalize(m);
                 area.appendChild(btn);
             });
         }
     }
 
+    async function checkStatus() {
+        const area = document.getElementById('button-area');
+        area.innerHTML = "<div class='loading-spinner'></div><p>工程の状態を確認中...</p>";
+        try {
+            const url = `${GAS_URL}?action=checkWorkStatus&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}`;
+            const resp = await fetch(url);
+            const res = await resp.json();
+            if (res.status === "readyToEnd") {
+                state.staff = res.staff; state.mac = res.machine; state.targetRow = res.row;
+                updateUI('done');
+                showFinalButton("end");
+            } else {
+                showFinalButton("start", -1);
+            }
+        } catch(e) { showFinalButton("start", -1); }
+    }
+
     function showFinalButton(type, row) {
-        if(row !== undefined) state.targetRow = row;
+        if(row !== undefined && row !== -1) state.targetRow = row;
         const area = document.getElementById('button-area');
         area.innerHTML = "";
         const btn = document.createElement('button');
@@ -298,11 +296,14 @@
 
     async function submitWork(type) {
         if(!confirm((type === "start" ? "開始" : "終了") + "を登録しますか？")) return;
+        const area = document.getElementById('button-area');
+        area.innerHTML = "<div class='loading-spinner'></div><p>登録中...</p>";
         try {
             const url = `${GAS_URL}?action=saveWorkRecord&type=${type}&row=${state.targetRow}&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
-            await fetch(url);
-            resetToMain();
-        } catch(e) { alert("保存失敗"); }
+            const resp = await fetch(url);
+            const res = await resp.text();
+            if(res.includes("Success")) { resetToMain(); } else { alert("保存失敗: " + res); }
+        } catch(e) { alert("通信エラーが発生しました"); }
     }
 
     function updateUI(step) {
@@ -316,7 +317,6 @@
         const ts = { proc: "工程名を選択してください", staff: "作業者を選択してください", mac: "装置名を選択してください", done: "登録内容の確認" };
         document.getElementById('button-title').innerText = ts[step] || "";
     }
-
     init();
 </script>
 </body>
