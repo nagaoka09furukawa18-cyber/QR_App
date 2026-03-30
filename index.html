@@ -17,11 +17,12 @@
         .btn-main { width: 100%; padding: 18px; font-size: 18px; margin: 10px 0; display: block; }
         .btn-mac { width: 100%; display: block; text-align: left; padding: 15px 20px; margin: 8px 0; background: #007bff; color: white; border-radius: 8px; font-size: 16px; }
         
-        /* 手配No表示を強調 */
-        #tehaiDisplay { font-size: 28px; font-weight: 900; margin-bottom: 15px; color: #000; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+        /* 手配Noエリアのデザイン改善 */
+        #tehaiDisplay { font-size: 20px; font-weight: bold; margin-bottom: 15px; color: #555; background: #f8f9fa; padding: 10px; border-radius: 8px; }
+        #tehaiDisplay span { color: #000; display: block; margin-top: 5px; } /* 番号本体を改行して巨大化 */
         
         .select-slot { background: #fff; border: 2px solid #e0e0e0; padding: 12px; margin: 8px 0; border-radius: 8px; text-align: left; font-size: 15px; cursor: pointer; }
-        .select-slot strong { color: #007bff; font-size: 17px; margin-left: 10px; }
+        .select-slot strong { color: #007bff; font-size: 18px; margin-left: 10px; }
         .select-slot.active-slot { border-color: #007bff; background: #f0f7ff; box-shadow: 0 0 8px rgba(0,123,255,0.2); }
         .select-slot.disabled { background: #f9f9f9; color: #aaa; cursor: not-allowed; border-style: dashed; }
         
@@ -31,15 +32,22 @@
         .config-disabled { opacity: 0.4; pointer-events: none; }
         .device-id { font-size: 10px; color: #ccc; margin-top: 20px; }
         input[type="text"], input[type="password"] { width: 100%; padding: 12px; margin: 5px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
-        .proc-btn { min-width: 80px; border: 2px solid #ddd; }
+        
+        .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #007bff; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
 <div class="card">
+    <div id="screenWait" class="screen active">
+        <div class="loading-spinner"></div>
+        <p>データ読み込み中...</p>
+    </div>
+
     <div id="screenMain" class="screen">
         <h2>加工進捗管理</h2>
-        <div id="currentStation" style="margin-bottom:20px; font-weight:bold; color:#007bff; white-space: pre-wrap; line-height: 1.6;">読込中...</div>
+        <div id="currentStation" style="margin-bottom:20px; font-weight:bold; color:#007bff; white-space: pre-wrap; line-height: 1.6;"></div>
         <button id="btnStartScan" class="btn-blue btn-main" style="display:none;" onclick="startScan()">QRスキャン開始</button>
         <button class="btn-gray" onclick="authAdmin()" style="font-size:12px; margin-top:40px;">管理者設定</button>
         <div id="displayId" class="device-id"></div>
@@ -60,12 +68,10 @@
             <label style="font-size:12px; font-weight:bold;">端末名 (入力必須):</label>
             <input type="text" id="inputDeviceName" placeholder="例: マシニング1号" oninput="toggleConfigList()">
         </div>
-        
         <div id="configWrapper" class="config-disabled">
             <p style="font-size:11px; color:#666; text-align:left; margin:0;">担当工程を選択：</p>
             <div id="configList" style="margin-bottom:15px; padding:10px; border:1px solid #eee; background:#fff; min-height:100px; text-align:left;">取得中...</div>
         </div>
-
         <button class="btn-green btn-main" onclick="saveConfig()">設定完了 (戻る)</button>
     </div>
 
@@ -80,7 +86,6 @@
         <div id="slot-proc" class="select-slot" onclick="clickProcSlot()">工程名: <strong id="val-proc"></strong></div>
         <div id="slot-staff" class="select-slot disabled" onclick="clickStaffSlot()">作業者: <strong id="val-staff"></strong></div>
         <div id="slot-mac" class="select-slot disabled" onclick="clickMacSlot()">装置名: <strong id="val-mac"></strong></div>
-        
         <div id="button-container">
             <div id="button-title"></div>
             <div id="button-area"></div>
@@ -97,26 +102,22 @@
     localStorage.setItem('deviceId', deviceId);
 
     async function init() {
+        showScreen('screenWait'); 
         document.getElementById('displayId').innerText = "端末ID: " + deviceId;
-        const stationLabel = document.getElementById('currentStation');
-        const startBtn = document.getElementById('btnStartScan');
-
         try {
             const resp = await fetch(`${GAS_URL}?action=getAllMasters&deviceId=${deviceId}`);
             masters = await resp.json();
-
             if (masters.device) {
                 updateStationDisplay(masters.device.name, masters.device.config);
-                startBtn.style.display = "block";
+                document.getElementById('btnStartScan').style.display = "block";
             } else {
-                stationLabel.innerHTML = "<span style='color:red;'>⚠️端末未登録です</span>";
+                document.getElementById('currentStation').innerHTML = "<span style='color:red;'>⚠️端末未登録です</span>";
             }
         } catch(e) {
-            const localConfig = localStorage.getItem('myStations');
-            const localName = localStorage.getItem('deviceName');
-            if(localConfig) {
-                updateStationDisplay(localName, localConfig);
-                startBtn.style.display = "block";
+            const sc = localStorage.getItem('myStations');
+            if(sc) {
+                updateStationDisplay(localStorage.getItem('deviceName'), sc);
+                document.getElementById('btnStartScan').style.display = "block";
             }
         }
         showScreen('screenMain');
@@ -161,11 +162,9 @@
         showScreen('screenConfig');
         document.getElementById('inputDeviceName').value = localStorage.getItem('deviceName') || "";
         toggleConfigList();
-
         const area = document.getElementById('configList');
         const allProcs = masters.processes || [];
         const currentProcs = (localStorage.getItem('myStations') || "").split(',').map(s => s.trim());
-
         area.innerHTML = "";
         allProcs.forEach(p => {
             const btn = document.createElement('button');
@@ -183,9 +182,8 @@
 
     async function saveConfig() {
         const name = document.getElementById('inputDeviceName').value.trim();
-        const selectedBtns = document.querySelectorAll('#configList button[data-selected="true"]');
-        const sel = Array.from(selectedBtns).map(b => b.innerText).join(',');
-        if(!name || !sel) return alert("入力内容を確認してください");
+        const sel = Array.from(document.querySelectorAll('#configList button[data-selected="true"]')).map(b => b.innerText).join(',');
+        if(!name || !sel) return alert("内容を確認してください");
         try {
             await fetch(`${GAS_URL}?action=saveDeviceConfig&deviceId=${deviceId}&deviceName=${encodeURIComponent(name)}&processList=${encodeURIComponent(sel)}`, {mode: 'no-cors'});
             updateStationDisplay(name, sel);
@@ -205,7 +203,8 @@
     function onScanSuccess(no) {
         state = { tehai: no, proc: '', staff: '', mac: '', targetRow: -1 };
         showScreen('screenDetail');
-        document.getElementById('tehaiDisplay').innerText = no;
+        // 【重要】手配No：を復活し、番号部分を大きく表示
+        document.getElementById('tehaiDisplay').innerHTML = `手配No：<span style="font-size:36px; font-weight:900;">${no}</span>`;
         clickProcSlot();
     }
 
@@ -219,13 +218,28 @@
             const btn = document.createElement('button');
             btn.className = "btn-blue";
             btn.innerText = p.trim();
-            btn.onclick = () => { 
+            btn.onclick = async () => { 
                 state.proc = p.trim(); 
                 state.staff = ''; state.mac = ''; 
-                clickStaffSlot(); 
+                await checkStatus(); 
             };
             area.appendChild(btn);
         });
+    }
+
+    async function checkStatus() {
+        const area = document.getElementById('button-area');
+        area.innerHTML = "工程の状態を確認中...";
+        try {
+            const url = `${GAS_URL}?action=checkWorkStatus&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}`;
+            const resp = await fetch(url);
+            const res = await resp.json();
+            if (res.status === "readyToEnd") {
+                state.staff = res.staff; state.mac = res.machine; state.targetRow = res.row;
+                updateUI('done');
+                showFinalButton("end");
+            } else { clickStaffSlot(); }
+        } catch(e) { clickStaffSlot(); }
     }
 
     function clickStaffSlot() {
@@ -233,11 +247,7 @@
         updateUI('staff');
         const area = document.getElementById('button-area');
         area.innerHTML = "";
-        const list = masters.staffs
-            .filter(r => r[0] === state.proc)
-            .map(r => r[1].toString().split(',').map(s => s.trim()))
-            .flat();
-
+        const list = masters.staffs.filter(r => r[0] === state.proc).map(r => r[1].toString().split(',').map(s => s.trim())).flat();
         if (list.length === 1 && list[0] !== "") { 
             state.staff = list[0]; clickMacSlot(); 
         } else {
@@ -262,34 +272,21 @@
             }
         });
         const unique = [...new Set(machineList)].filter(Boolean);
-        const nextAction = async (m) => { state.mac = m; await checkStatus(); };
-
-        if (unique.length === 1) { nextAction(unique[0]); }
-        else if (unique.length === 0) { nextAction("-"); }
+        const setMacAndDone = (m) => { state.mac = m; updateUI('done'); showFinalButton("start", -1); };
+        if (unique.length === 1) { setMacAndDone(unique[0]); }
+        else if (unique.length === 0) { setMacAndDone("-"); }
         else {
             unique.forEach(m => {
                 const btn = document.createElement('button');
                 btn.className = "btn-mac"; btn.innerText = "▶ " + m;
-                btn.onclick = () => nextAction(m);
+                btn.onclick = () => setMacAndDone(m);
                 area.appendChild(btn);
             });
         }
     }
 
-    async function checkStatus() {
-        updateUI('done');
-        const area = document.getElementById('button-area');
-        area.innerHTML = "確認中...";
-        try {
-            const url = `${GAS_URL}?action=checkWorkStatus&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}`;
-            const resp = await fetch(url);
-            const res = await resp.json();
-            showFinalButton(res.status === "readyToEnd" ? "end" : "start", res.row);
-        } catch(e) { showFinalButton("start", -1); }
-    }
-
     function showFinalButton(type, row) {
-        state.targetRow = row;
+        if(row !== undefined) state.targetRow = row;
         const area = document.getElementById('button-area');
         area.innerHTML = "";
         const btn = document.createElement('button');
@@ -305,22 +302,19 @@
             const url = `${GAS_URL}?action=saveWorkRecord&type=${type}&row=${state.targetRow}&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
             await fetch(url);
             resetToMain();
-        } catch(e) { alert("通信エラー"); }
+        } catch(e) { alert("保存失敗"); }
     }
 
     function updateUI(step) {
         document.getElementById('val-proc').innerText = state.proc || "未選択";
         document.getElementById('val-staff').innerText = state.staff || (state.proc ? "選択中..." : "---");
         document.getElementById('val-mac').innerText = state.mac || (state.staff ? "選択中..." : "---");
-        
         document.getElementById('slot-staff').className = state.proc ? "select-slot" : "select-slot disabled";
         document.getElementById('slot-mac').className = state.staff ? "select-slot" : "select-slot disabled";
-        
         document.querySelectorAll('.select-slot').forEach(s => s.classList.remove('active-slot'));
         if (step !== 'done') document.getElementById('slot-' + step).classList.add('active-slot');
-        
-        const titles = { proc: "工程を選択してください", staff: "作業者を選択してください", mac: "装置名を選択してください", done: "登録内容の確認" };
-        document.getElementById('button-title').innerText = titles[step] || "";
+        const ts = { proc: "工程名を選択してください", staff: "作業者を選択してください", mac: "装置名を選択してください", done: "登録内容の確認" };
+        document.getElementById('button-title').innerText = ts[step] || "";
     }
 
     init();
