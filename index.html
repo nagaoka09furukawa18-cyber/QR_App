@@ -10,25 +10,16 @@
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
         .screen { display: none; }
         .active { display: block; }
-        
-        /* 基本ボタン：タイル状 */
         button { padding: 12px 18px; margin: 5px; font-size: 15px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; display: inline-block; }
         .btn-blue { background: #007bff; color: white; }
         .btn-green { background: #28a745; color: white; }
         .btn-gray { background: #6c757d; color: white; }
-        
-        /* メイン・登録ボタン：横幅いっぱい */
         .btn-main { width: 100%; padding: 18px; font-size: 18px; margin: 10px 0; display: block; }
-
-        /* 装置専用ボタン：1行1ボタン（左寄せ） */
         .btn-mac { width: 100%; display: block; text-align: left; padding: 15px 20px; margin: 8px 0; background: #007bff; color: white; border-radius: 8px; font-size: 16px; }
-
-        /* 選択枠（スロット）のスタイル */
         .select-slot { background: #fff; border: 2px solid #e0e0e0; padding: 10px; margin: 8px 0; border-radius: 8px; text-align: left; font-size: 14px; cursor: pointer; }
         .select-slot strong { color: #007bff; font-size: 16px; }
         .select-slot.active-slot { border-color: #007bff; background: #f0f7ff; }
         .select-slot.disabled { background: #f9f9f9; color: #aaa; cursor: not-allowed; border-style: dashed; }
-        
         #button-container { background: #fdfdfd; border: 1px solid #eee; border-radius: 10px; padding: 10px; margin-top: 15px; min-height: 80px; }
         .checkbox-item { display: block; text-align: left; padding: 10px; font-size: 18px; border-bottom: 1px solid #eee; }
         .checkbox-item input { transform: scale(1.5); margin-right: 15px; }
@@ -71,14 +62,13 @@
             <div id="button-area"></div>
         </div>
 
-        <button id="final-btn" class="btn-green btn-main" style="display:none; margin-top:20px;" onclick="submitData()">実績を登録する</button>
         <button class="btn-gray" onclick="location.reload()" style="margin-top:20px; font-size:12px;">最初からやり直す</button>
     </div>
 </div>
 
 <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbyj1hRe31gDBBSFA6K2HZ1MaFWhE477HnuTiNZhCvvY6PLtwBhMz7mMfRi4pQt7vCtx/exec"; 
-    let state = { tehai: '', proc: '', staff: '', mac: '' };
+    let state = { tehai: '', proc: '', staff: '', mac: '', targetRow: -1 };
     let deviceId = localStorage.getItem('deviceId') || 'ID-' + Math.random().toString(36).substring(2, 8).toUpperCase();
     localStorage.setItem('deviceId', deviceId);
 
@@ -102,7 +92,7 @@
     }
 
     function onScanSuccess(no) {
-        state = { tehai: no, proc: '', staff: '', mac: '' };
+        state = { tehai: no, proc: '', staff: '', mac: '', targetRow: -1 };
         showScreen('screenDetail');
         document.getElementById('tehaiDisplay').innerText = "手配No: " + no;
         clickProcSlot();
@@ -162,17 +152,60 @@
             
             if (list.length === 1) { 
                 state.mac = list[0]; 
-                updateUI('done'); 
+                checkStatusAndShowButtons(); 
             } else {
                 list.forEach(m => {
                     const btn = document.createElement('button');
-                    btn.className = "btn-mac"; // 1行1ボタン用のスタイル
+                    btn.className = "btn-mac";
                     btn.innerText = "▶ " + m;
-                    btn.onclick = () => { state.mac = m; updateUI('done'); };
+                    btn.onclick = () => { state.mac = m; checkStatusAndShowButtons(); };
                     area.appendChild(btn);
                 });
             }
         } catch(e) { area.innerHTML = "通信エラー"; }
+    }
+
+    // ★新規：開始・終了判定をしてボタンを出す
+    async function checkStatusAndShowButtons() {
+        updateUI('done');
+        const area = document.getElementById('button-area');
+        area.innerHTML = "<div style='color:#666;'>実績シートを確認中...</div>";
+        
+        try {
+            const url = `${GAS_URL}?action=checkWorkStatus&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}`;
+            const resp = await fetch(url);
+            const res = await resp.json();
+            
+            state.targetRow = res.row; 
+            area.innerHTML = "";
+            
+            if (res.status === "readyToEnd") {
+                const btn = document.createElement('button');
+                btn.className = "btn-blue btn-main";
+                btn.innerText = "■ 作業終了を記録する";
+                btn.onclick = () => submitWork("end");
+                area.appendChild(btn);
+            } else {
+                // new または readyToStart の場合は開始ボタン
+                const btn = document.createElement('button');
+                btn.className = "btn-green btn-main";
+                btn.innerText = "▶ 作業開始を記録する";
+                btn.onclick = () => submitWork("start");
+                area.appendChild(btn);
+            }
+        } catch(e) { area.innerHTML = "ステータス取得エラー"; }
+    }
+
+    // ★新規：最終送信処理
+    async function submitWork(type) {
+        const msg = type === "start" ? "作業を開始しますか？" : "作業を終了しますか？";
+        if(!confirm(msg)) return;
+
+        const url = `${GAS_URL}?action=saveWorkRecord&type=${type}&row=${state.targetRow}&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
+        
+        await fetch(url);
+        alert("記録を保存しました");
+        location.reload();
     }
 
     function updateUI(step) {
@@ -186,22 +219,10 @@
         document.querySelectorAll('.select-slot').forEach(s => s.classList.remove('active-slot'));
         if (step !== 'done') {
             document.getElementById('slot-' + step).classList.add('active-slot');
-            document.getElementById('final-btn').style.display = "none";
-        } else {
-            document.getElementById('button-area').innerHTML = "<div style='padding:10px; color:#28a745; font-weight:bold;'>完了しました。下の登録ボタンを押してください。</div>";
-            document.getElementById('final-btn').style.display = "block";
         }
         
-        const titles = { proc: "1. 工程を選んでください", staff: "2. 作業者を選んでください", mac: "3. 装置を選んでください", done: "登録確認" };
+        const titles = { proc: "1. 工程を選んでください", staff: "2. 作業者を選んでください", mac: "3. 装置を選んでください", done: "4. 実績登録" };
         document.getElementById('button-title').innerText = titles[step];
-    }
-
-    async function submitData() {
-        if(!confirm("登録しますか？")) return;
-        const url = `${GAS_URL}?action=saveRecord&tehaiNo=${state.tehai}&process=${state.proc}&staff=${state.staff}&machine=${state.mac}&deviceId=${deviceId}`;
-        fetch(url, {mode: 'no-cors'});
-        alert("送信完了！");
-        location.reload();
     }
 
     async function startScan() {
