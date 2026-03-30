@@ -100,31 +100,25 @@
     localStorage.setItem('deviceId', deviceId);
 
   async function init() {
+        // 1. 待機画面を出す
         showScreen('screenWait'); 
         document.getElementById('displayId').innerText = "端末ID: " + deviceId;
 
-        // 【安全策】3秒経っても通信が終わらなければ、強制的にメイン画面へ進める
-        const forceShow = setTimeout(() => {
-            showScreen('screenMain');
-        }, 3000);
-
         try {
+            // 2. データを取る（失敗しても無視する）
             const resp = await fetch(`${GAS_URL}?action=getAllMasters&deviceId=${deviceId}`);
-            masters = await resp.json();
+            const data = await resp.json();
+            masters = data; // ここでグローバル変数に代入
             
+            // 3. 端末情報があれば表示（なければ何もしない）
             if (masters && masters.device) {
                 updateStationDisplay(masters.device.name, masters.device.config);
-                document.getElementById('btnStartScan').style.display = "block";
-            } else {
-                // device: null の場合でも、エラーで止めずメッセージを出すだけにする
-                document.getElementById('currentStation').innerHTML = "<span style='color:red;'>⚠️端末未登録</span>";
             }
         } catch(e) {
-            console.error("Init Error:", e);
+            console.error("通信失敗:", e);
         }
 
-        // 正常に終わればタイマーを解除して画面表示
-        clearTimeout(forceShow);
+        // 4. 【絶対実行】何があってもメイン画面へ切り替える
         showScreen('screenMain');
     }
 
