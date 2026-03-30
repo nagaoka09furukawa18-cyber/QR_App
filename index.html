@@ -14,6 +14,7 @@
         .btn-blue { background: #007bff; color: white; }
         .btn-green { background: #28a745; color: white; }
         .btn-gray { background: #6c757d; color: white; }
+        /* btn-mainは横いっぱい、通常のbtnは文字幅になります */
         .btn-main { width: 100%; padding: 18px; font-size: 18px; margin: 10px 0; display: block; }
         .btn-mac { width: 100%; display: block; text-align: left; padding: 15px 20px; margin: 8px 0; background: #007bff; color: white; border-radius: 8px; font-size: 16px; }
         .select-slot { background: #fff; border: 2px solid #e0e0e0; padding: 10px; margin: 8px 0; border-radius: 8px; text-align: left; font-size: 14px; cursor: pointer; }
@@ -23,6 +24,8 @@
         #button-container { background: #fdfdfd; border: 1px solid #eee; border-radius: 10px; padding: 10px; margin-top: 15px; min-height: 80px; }
         .checkbox-item { display: block; text-align: left; padding: 10px; font-size: 18px; border-bottom: 1px solid #eee; }
         .checkbox-item input { transform: scale(1.5); margin-right: 15px; }
+        /* 工程選択ボタンを無効化するスタイル */
+        .config-disabled { opacity: 0.5; pointer-events: none; }
         .device-id { font-size: 10px; color: #ccc; margin-top: 20px; }
         input[type="text"], input[type="password"] { width: 100%; padding: 12px; margin: 5px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
     </style>
@@ -51,10 +54,15 @@
     <div id="screenConfig" class="screen">
         <h3>端末詳細設定</h3>
         <div style="text-align:left; margin-bottom:15px;">
-            <label style="font-size:12px; font-weight:bold;">端末名 (例: ラインA-1):</label>
-            <input type="text" id="inputDeviceName" placeholder="端末名を入力">
+            <label style="font-size:12px; font-weight:bold;">端末名 (入力必須):</label>
+            <input type="text" id="inputDeviceName" placeholder="例: ラインA-1" oninput="toggleConfigList()">
         </div>
-        <div id="configList" style="margin-bottom:15px; max-height:200px; overflow-y:auto; border:1px solid #eee;">取得中...</div>
+        
+        <div id="configWrapper" class="config-disabled">
+            <p style="font-size:11px; color:#666; text-align:left; margin:0;">担当工程を選択：</p>
+            <div id="configList" style="margin-bottom:15px; max-height:200px; overflow-y:auto; border:1px solid #eee; background:#fff;">工程取得中...</div>
+        </div>
+
         <button class="btn-green btn-main" onclick="saveConfig()">設定を保存</button>
         
         <hr style="margin:20px 0;">
@@ -63,7 +71,7 @@
             <input type="password" id="newAdminPw" placeholder="新しいパスワード">
             <button class="btn-gray" onclick="updatePassword()" style="width:100%;">パスワードを更新</button>
         </div>
-        <button class="btn-gray" onclick="location.reload()" style="margin-top:20px; font-size:12px;">メインに戻る</button>
+        <button class="btn-gray" onclick="location.reload()" style="margin-top:20px; font-size:12px; width:100%;">設定完了(メインに戻る)</button>
     </div>
 
     <div id="screenScanner" class="screen">
@@ -98,19 +106,18 @@
 
         try {
             const resp = await fetch(`${GAS_URL}?action=getDeviceConfig&deviceId=${deviceId}`);
-            const res = await resp.json(); // {name: "...", config: "..."}
+            const res = await resp.json();
 
             if (res.name && res.config) {
                 localStorage.setItem('myStations', res.config);
                 localStorage.setItem('deviceName', res.name);
                 stationLabel.innerText = "端末: " + res.name + "\n担当: " + res.config;
                 startBtn.style.display = "block";
-                showScreen('screenMain');
             } else {
                 stationLabel.innerHTML = "<span style='color:red;'>⚠️端末未登録です<br>管理者に設定を依頼してください</span>";
                 startBtn.style.display = "none";
-                showScreen('screenMain');
             }
+            showScreen('screenMain');
         } catch(e) { 
             const localConfig = localStorage.getItem('myStations');
             if(localConfig) {
@@ -126,7 +133,7 @@
         document.getElementById(id).classList.add('active');
     }
 
-    // --- 管理者認証ロジック ---
+    // --- 管理者認証 ---
     function authAdmin() {
         document.getElementById('adminPwInput').value = "";
         showScreen('screenAuth');
@@ -136,29 +143,26 @@
         const input = document.getElementById('adminPwInput').value;
         const resp = await fetch(`${GAS_URL}?action=getAdminPassword`);
         const correct = await resp.text();
+        if (input === correct) { loadConfigScreen(); } else { alert("パスワードが違います"); }
+    }
 
-        if (input === correct) {
-            loadConfigScreen();
+    // --- 管理者設定画面の制御 ---
+    function toggleConfigList() {
+        const name = document.getElementById('inputDeviceName').value.trim();
+        const wrapper = document.getElementById('configWrapper');
+        if (name.length > 0) {
+            wrapper.classList.remove('config-disabled');
         } else {
-            alert("パスワードが正しくありません");
+            wrapper.classList.add('config-disabled');
         }
     }
 
-    async function updatePassword() {
-        const newPw = document.getElementById('newAdminPw').value.trim();
-        if(!newPw) return alert("パスワードを入力してください");
-        if(!confirm("管理者パスワードを変更しますか？")) return;
-        try {
-            await fetch(`${GAS_URL}?action=updateAdminPassword&newPassword=${encodeURIComponent(newPw)}`);
-            alert("パスワードを更新しました");
-            document.getElementById('newAdminPw').value = "";
-        } catch(e) { alert("更新失敗"); }
-    }
-
-    // --- 設定画面ロジック ---
     async function loadConfigScreen() {
         showScreen('screenConfig');
-        document.getElementById('inputDeviceName').value = localStorage.getItem('deviceName') || "";
+        const nameInput = document.getElementById('inputDeviceName');
+        nameInput.value = localStorage.getItem('deviceName') || "";
+        toggleConfigList(); // 読み込み時に端末名があれば有効化
+
         const area = document.getElementById('configList');
         area.innerHTML = "工程リストを取得中...";
         try {
@@ -178,18 +182,32 @@
         const checkboxes = document.querySelectorAll('#configList input:checked');
         const sel = Array.from(checkboxes).map(i => i.value).join(',');
         
-        if(!name || !sel) return alert("端末名と工程を選択してください");
+        if(!name) return alert("端末名を入力してください");
+        if(!sel) return alert("工程を1つ以上選択してください");
 
         try {
+            // 同一端末名があればGAS側で上書きされる
             await fetch(`${GAS_URL}?action=saveDeviceConfig&deviceId=${deviceId}&deviceName=${encodeURIComponent(name)}&processList=${encodeURIComponent(sel)}`, {mode: 'no-cors'});
             localStorage.setItem('myStations', sel);
             localStorage.setItem('deviceName', name);
-            alert("登録完了");
-            location.reload();
+            alert("端末「" + name + "」の設定を保存しました");
+            // location.reload() ではなく init() でメイン画面を再描画
+            init();
         } catch(e) { alert("保存失敗"); }
     }
 
-    // --- 実績登録フロー (変更なし) ---
+    async function updatePassword() {
+        const newPw = document.getElementById('newAdminPw').value.trim();
+        if(!newPw) return alert("パスワードを入力してください");
+        if(!confirm("管理者パスワードを変更しますか？")) return;
+        try {
+            await fetch(`${GAS_URL}?action=updateAdminPassword&newPassword=${encodeURIComponent(newPw)}`);
+            alert("パスワードを更新しました");
+            document.getElementById('newAdminPw').value = "";
+        } catch(e) { alert("更新失敗"); }
+    }
+
+    // --- 実績登録フロー (工程選択ボタンを文字幅に変更) ---
     function onScanSuccess(no) {
         state = { tehai: no, proc: '', staff: '', mac: '', targetRow: -1 };
         showScreen('screenDetail');
@@ -205,7 +223,7 @@
         if(!stations) return;
         stations.split(',').forEach(p => {
             const btn = document.createElement('button');
-            btn.className = "btn-blue";
+            btn.className = "btn-blue"; // btn-mainを外して文字幅にする
             btn.innerText = p.trim();
             btn.onclick = async () => { 
                 state.proc = p.trim(); 
@@ -217,6 +235,7 @@
         });
     }
 
+    // --- 以降の関数 (checkAutoStatus, clickStaffSlot, clickMacSlot, showFinalButton, submitWork, updateUI, startScan) は変更なし ---
     async function checkAutoStatus() {
         const area = document.getElementById('button-area');
         area.innerHTML = "<div style='color:#666;'>状態を確認中...</div>";
@@ -229,9 +248,7 @@
                 state.mac = res.machine;
                 state.targetRow = res.row;
                 showFinalButton("end");
-            } else {
-                clickStaffSlot();
-            }
+            } else { clickStaffSlot(); }
         } catch(e) { clickStaffSlot(); }
     }
 
@@ -291,21 +308,14 @@
         const area = document.getElementById('button-area');
         area.innerHTML = "";
         const btn = document.createElement('button');
-        if (type === "end") {
-            btn.className = "btn-blue btn-main";
-            btn.innerText = "■ 作業終了を記録する";
-            btn.onclick = () => submitWork("end");
-        } else {
-            btn.className = "btn-green btn-main";
-            btn.innerText = "▶ 作業開始を記録する";
-            btn.onclick = () => submitWork("start");
-        }
+        btn.className = (type === "end") ? "btn-blue btn-main" : "btn-green btn-main";
+        btn.innerText = (type === "end") ? "■ 作業終了を記録する" : "▶ 作業開始を記録する";
+        btn.onclick = () => submitWork(type);
         area.appendChild(btn);
     }
 
     async function submitWork(type) {
-        const msg = type === "start" ? "開始しますか？" : "終了しますか？";
-        if(!confirm(msg)) return;
+        if(!confirm(type === "start" ? "開始しますか？" : "終了しますか？")) return;
         try {
             const url = `${GAS_URL}?action=saveWorkRecord&type=${type}&row=${state.targetRow}&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
             await fetch(url);
