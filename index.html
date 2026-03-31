@@ -122,12 +122,6 @@
         showScreen('screenMain');
     }
 
-    function updateStationDisplay(name, config) {
-        localStorage.setItem('myStations', config);
-        localStorage.setItem('deviceName', name);
-        document.getElementById('currentStation').innerText = "端末名: " + name + "\n担当工程: " + config;
-    }
-
     function showScreen(id) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById(id).classList.add('active');
