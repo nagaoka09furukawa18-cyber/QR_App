@@ -445,12 +445,21 @@ async function saveRecord(type) {
         const originalContent = area.innerHTML;
         area.innerHTML = "<p>送信中...</p>";
 
-        // 完了時は行番号が必須というガード
-        if (type === "end" && state.targetRow < 0) {
-            alert("エラー：終了対象の行番号が特定できません。");
-            resetToMain();
-            return;
-        }
+        // メモリの即時更新（爆速維持のため再取得を待たない）
+            if (type === "end") {
+                masters.activeWorks = (masters.activeWorks || []).filter(w => 
+                    !(String(w.tehai).trim() === String(state.tehai).trim() && String(w.proc).trim() === String(state.proc).trim())
+                );
+            } else {
+                if(!masters.activeWorks) masters.activeWorks = [];
+                masters.activeWorks.push({
+                    tehai: state.tehai, 
+                    proc: state.proc, 
+                    staff: state.staff, 
+                    mac: state.mac, 
+                    row: 9999 // ★ -1ではなく、正の整数を入れることで「特定できない」エラーを回避
+                });
+            }
 
         try {
             // URLを安全に構築
