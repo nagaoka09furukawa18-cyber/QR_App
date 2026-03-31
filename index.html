@@ -234,37 +234,62 @@ function clickProcSlot() {
                 const selectedProc = p.trim();
                 state.proc = selectedProc;
                 
-                // メモリから検索
-                const work = masters.activeWorks.find(w => 
-                    String(w.tehai).trim() === String(state.tehai).trim() && 
-                    String(w.proc).trim() === String(selectedProc).trim()
+                // --- 【修正箇所：デバッグと判定】 ---
+                const scanTehai = String(state.tehai).trim();
+                const scanProc = String(selectedProc).trim();
+                const activeList = masters.activeWorks || [];
+                const firstData = activeList.length > 0 ? activeList[0] : null;
+
+                // 比較対象をすべて表示（確認後、ここを消せば元通りです）
+                let debugMsg = `【照合確認】\n`;
+                debugMsg += `スキャン：No[${scanTehai}] / 工[${scanProc}]\n`;
+                if (firstData) {
+                    debugMsg += `メモリ：No[${firstData.tehai}] / 工[${firstData.proc}]\n`;
+                    debugMsg += `(全${activeList.length}件中 1件目を表示)`;
+                } else {
+                    debugMsg += "※メモリに作業中データがありません";
+                }
+                alert(debugMsg);
+
+                // メモリ内を検索
+                const work = activeList.find(w => 
+                    String(w.tehai).trim() === scanTehai && 
+                    String(w.proc).trim() === scanProc
                 );
 
                 if (work) {
+                    // 一致した場合：作業者・装置をセットして完了画面へ
                     state.staff = work.staff;
                     state.mac = work.mac;
                     state.targetRow = work.row;
-                    showConfirmScreen("end");
+                    
+                    // スロット表示を更新
+                    document.getElementById('val-staff').innerText = state.staff;
+                    document.getElementById('val-mac').innerText = state.mac;
+                    
+                    // 直接完了ボタン表示へ（checkWorkStatusを通さない）
+                    showConfirmScreenFromMemory();
                 } else {
-                    // 【デバッグ用】一致しなかった理由を探るためのアラート
-                    if (masters.activeWorks.length > 0) {
-                        const firstWork = masters.activeWorks[0];
-                        alert(
-                            "判定に失敗しました\n\n" +
-                            "【スキャンしたデータ】\n" +
-                            "手配No: [" + state.tehai + "]\n" +
-                            "工程: [" + selectedProc + "]\n\n" +
-                            "【メモリにあるデータ】\n" +
-                            "手配No: [" + firstWork.tehai + "]\n" +
-                            "工程: [" + firstWork.proc + "]"
-                        );
-                    }
+                    // 一致しない場合：新規開始として作業者選択へ
                     state.staff = ''; state.mac = ''; 
                     clickStaffSlot(); 
                 }
+                // -----------------------------------
             };
             area.appendChild(btn);
         });
+    }
+
+    // メモリから直接完了画面を作る補助関数（追加）
+    function showConfirmScreenFromMemory() {
+        updateUI('submit');
+        const area = document.getElementById('button-area');
+        area.innerHTML = "";
+        const btn = document.createElement('button');
+        btn.className = "btn-main btn-green";
+        btn.innerText = "完了報告を送る";
+        btn.onclick = () => saveRecord("end");
+        area.appendChild(btn);
     }
 
     function clickStaffSlot() {
