@@ -236,20 +236,20 @@ async function startScan() {
         const work = activeList.find(w => String(w.tehai).trim() === scanNo);
 
         if (work) {
-            // 行番号チェック（安全策）
-            if (work.row === undefined || work.row === null || work.row === -1) {
-                alert("作業中データに行番号が含まれていません。");
+            // rowが0以上（9999を含む）なら正常とみなす
+            if (work.row === undefined || work.row === null || work.row < 0) {
+                alert("終了対象の行番号が特定できません。");
                 clickProcSlot();
                 return;
             }
-            // 完了モード
+            // 正常：完了モードへ
             state.proc = work.proc;
             state.staff = work.staff;
             state.mac = work.mac;
             state.targetRow = work.row; 
 
             showScreen('screenDetail');
-            renderConfirmEndUI(); 
+            renderConfirmEndUI();
         } else {
             // 開始モード
             showScreen('screenDetail');
