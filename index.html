@@ -212,22 +212,37 @@
 
 // 1. スキャン成功時の振り分け
     function onScanSuccess(no) {
-        state = { tehai: String(no).trim(), proc: '', staff: '', mac: '', targetRow: -1 };
-        document.getElementById('tehaiDisplay').innerHTML = `手配No：<span style="font-size:36px; font-weight:900;">${no}</span>`;
+        // 全てをリセット
+        const scanNo = String(no).trim();
+        state = { tehai: scanNo, proc: '', staff: '', mac: '', targetRow: -1 };
+        document.getElementById('tehaiDisplay').innerHTML = `手配No：<span style="font-size:36px; font-weight:900;">${scanNo}</span>`;
         
         const activeList = masters.activeWorks || [];
-        const work = activeList.find(w => String(w.tehai).trim() === state.tehai);
+        
+        // 【デバッグ】メモリの中身を1件だけ確認（そもそもデータがあるか）
+        if (activeList.length === 0) {
+            console.warn("作業中リストが空です。開始モードへ移行します。");
+        }
+
+        // 手配Noで検索（型変換を徹底）
+        const work = activeList.find(w => String(w.tehai).trim() === scanNo);
 
         if (work) {
-            // 【完了モード】メモリに存在すれば即、完了UIへ
+            if (work.row === undefined || work.row === null || work.row === -1) {
+                alert("致命的エラー：作業中データは見つかりましたが、行番号(row)が記録されていません。");
+                clickProcSlot();
+                return;
+            }
+            // 正常：完了モードへ
             state.proc = work.proc;
             state.staff = work.staff;
             state.mac = work.mac;
-            state.targetRow = work.row;
+            state.targetRow = work.row; 
+
             showScreen('screenDetail');
             renderConfirmEndUI(); 
         } else {
-            // 【開始モード】メモリになければ工程選択へ
+            // 見つからない：開始モードへ
             showScreen('screenDetail');
             clickProcSlot();
         }
