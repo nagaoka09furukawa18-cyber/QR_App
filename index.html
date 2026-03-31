@@ -192,14 +192,26 @@
     async function saveConfig() {
         const name = document.getElementById('inputDeviceName').value.trim();
         const sel = Array.from(document.querySelectorAll('#configList button[data-selected="true"]')).map(b => b.innerText).join(',');
+        
         if(!name || !sel) return alert("内容を確認してください");
+        
         try {
+            // 1. サーバーへ設定を保存
             await fetch(`${GAS_URL}?action=saveDeviceConfig&deviceId=${deviceId}&deviceName=${encodeURIComponent(name)}&processList=${encodeURIComponent(sel)}`, {mode: 'no-cors'});
+            
+            // 2. ローカルストレージを更新（念のため）
             updateStationDisplay(name, sel);
-            masters.device = { name: name, config: sel };
-            document.getElementById('btnStartScan').style.display = "block";
+            
+            alert("設定を保存しました。最新データを読み込みます。");
+
+            // 3. 【重要】ここ！ 起動時の処理(init)をもう一度実行して、
+            // mastersの中身（特にdevice.config）をサーバーの最新状態に同期させる
+            await init(); 
+
             resetToMain();
-        } catch(e) { alert("保存失敗"); }
+        } catch(e) { 
+            alert("保存失敗"); 
+        }
     }
 
 async function startScan() {
