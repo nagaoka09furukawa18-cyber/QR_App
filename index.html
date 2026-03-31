@@ -211,13 +211,52 @@
     }
 
     function onScanSuccess(no) {
-        state = { tehai: no, proc: '', staff: '', mac: '', targetRow: -1 };
-        showScreen('screenDetail');
+        // 全てをリセットしてスキャン値をセット
+        state = { tehai: String(no).trim(), proc: '', staff: '', mac: '', targetRow: -1 };
         document.getElementById('tehaiDisplay').innerHTML = `手配No：<span style="font-size:36px; font-weight:900;">${no}</span>`;
-        clickProcSlot();
+        
+        // メモリ内の「作業中リスト」から、この手配Noを探す
+        const activeList = masters.activeWorks || [];
+        const work = activeList.find(w => String(w.tehai).trim() === state.tehai);
+
+        if (work) {
+            // 【完了モード】作業中データが存在する場合
+            state.proc = work.proc;
+            state.staff = work.staff;
+            state.mac = work.mac;
+            state.targetRow = work.row;
+
+            showScreen('screenDetail');
+            renderConfirmEndUI(); // 完了専用UIへ
+        } else {
+            // 【開始モード】作業中でない場合
+            showScreen('screenDetail');
+            clickProcSlot(); // 工程選択へ
+        }
     }
 
-function clickProcSlot() {
+    // 完了モード専用のUI表示
+    function renderConfirmEndUI() {
+        updateUI('submit');
+        // スロット表示を更新
+        document.getElementById('val-proc').innerText = state.proc;
+        document.getElementById('val-staff').innerText = state.staff;
+        document.getElementById('val-mac').innerText = state.mac;
+
+        const area = document.getElementById('button-area');
+        area.innerHTML = "";
+        
+        const btn = document.createElement('button');
+        btn.className = "btn-main btn-green";
+        btn.innerText = "完了報告を送る";
+        btn.style.marginTop = "20px";
+        btn.onclick = () => saveRecord("end");
+        
+        area.appendChild(btn);
+        document.getElementById('button-title').innerText = "【完了モード】前回の開始情報を引き継ぎました";
+    }
+
+　　function clickProcSlot() {
         updateUI('proc');
         const area = document.getElementById('button-area');
         area.innerHTML = "";
