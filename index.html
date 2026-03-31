@@ -257,12 +257,26 @@ async function startScan() {
         }
     }
 
-　　function clickProcSlot() {
+// 1. 表示更新関数：localStorageへの保存をやめ、メモリ上のmastersを優先する
+    function updateStationDisplay(name, config) {
+        // localStorageは予備として更新するが、基本はmastersを正とする
+        localStorage.setItem('myStations', config);
+        localStorage.setItem('deviceName', name);
+        document.getElementById('currentStation').innerText = "端末名: " + name + "\n担当工程: " + config;
+    }
+
+    // 2. 工程選択画面：localStorageではなく、必ずmasters.device.configを参照する
+    function clickProcSlot() {
         updateUI('proc');
         const area = document.getElementById('button-area');
         area.innerHTML = "";
-        const stations = localStorage.getItem('myStations');
-        if(!stations) return;
+
+        // ★重要：localStorageからではなく、最新のmastersデータから取得する
+        const stations = (masters.device && masters.device.config) ? masters.device.config : "";
+        if(!stations) {
+            area.innerHTML = "<p style='color:red;'>担当工程が設定されていません</p>";
+            return;
+        }
 
         stations.split(',').forEach(p => {
             const btn = document.createElement('button');
@@ -274,24 +288,19 @@ async function startScan() {
                 
                 const activeList = masters.activeWorks || [];
 
-                // 比較の際は、型に依存しないようString化して比較（正攻法）
                 const work = activeList.find(w => 
                     String(w.tehai).trim() === String(state.tehai).trim() && 
                     String(w.proc).trim() === String(selectedProc).trim()
                 );
 
                 if (work) {
-                    // 作業中の場合はデータを復元
                     state.staff = work.staff;
                     state.mac = work.mac;
                     state.targetRow = work.row;
-                    
                     document.getElementById('val-staff').innerText = state.staff;
                     document.getElementById('val-mac').innerText = state.mac;
-                    
                     showConfirmScreenFromMemory();
                 } else {
-                    // 新規作業の場合は作業者選択へ
                     state.staff = ''; state.mac = ''; 
                     clickStaffSlot(); 
                 }
