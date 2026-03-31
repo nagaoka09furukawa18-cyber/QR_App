@@ -188,21 +188,28 @@
         area.innerHTML = "";
         document.getElementById('button-title').innerText = "装置を選択してください";
 
-        // マスタから「工程が一致」し、かつ「作業者が含まれる」行を抽出
-        const filtered = masters.machines.filter(r => {
-            const masterProc = String(r[0] || "").trim();
-            const masterStaffs = String(r[1] || "").trim();
+        // マスタから「工程」と「作業者」が合致する装置を抽出
+        const deviceRows = masters.machines.filter(r => {
+            const mProc = String(r[0] || "").trim();
+            const mStaffs = String(r[1] || "").trim();
             
-            // 工程が一致しているか
-            if (masterProc !== state.proc) return false;
+            // 1. 工程が一致するか
+            if (mProc !== state.proc) return false;
 
-            // 作業者列をカンマでバラして、選択された作業者が含まれているかチェック
-            const staffList = masterStaffs.split(',').map(s => s.trim());
-            return staffList.includes(state.staff);
+            // 2. 作業者が一致するか (カンマ区切りでも単体でも対応)
+            const staffArray = mStaffs.split(',').map(s => s.trim());
+            return staffArray.includes(state.staff);
         });
-        
-        // 装置名リストを作成（重複排除）
-        const list = [...new Set(filtered.map(r => String(r[2] || "").split(',').map(s => s.trim())).flat())].filter(Boolean);
+
+        // 抽出した行にある「装置名」をカンマでバラして、ボタンのリストを作る
+        let deviceList = [];
+        deviceRows.forEach(r => {
+            const mDevices = String(r[2] || "").split(',').map(d => d.trim());
+            deviceList = deviceList.concat(mDevices);
+        });
+
+        // 重複を削除して、空文字を除外
+        const uniqueDevices = [...new Set(deviceList)].filter(Boolean);
 
         const finalize = (m) => {
             state.mac = m;
@@ -216,16 +223,17 @@
             area.appendChild(btn);
         };
 
-        if (list.length === 0) {
+        if (uniqueDevices.length === 0) {
             finalize("-");
-        } else if (list.length === 1) {
-            finalize(list[0]);
+        } else if (uniqueDevices.length === 1) {
+            finalize(uniqueDevices[0]);
         } else {
-            list.forEach(m => {
+            // 2つ以上ある場合はボタンを並べる
+            uniqueDevices.forEach(m => {
                 const btn = document.createElement('button');
                 btn.className = "btn-blue";
-                btn.style.width = "100%";
-                btn.style.display = "block"; // 縦に並べる
+                btn.style.width = "100%"; // スマホで押しやすく
+                btn.style.display = "block";
                 btn.innerText = m;
                 btn.onclick = () => finalize(m);
                 area.appendChild(btn);
