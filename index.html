@@ -219,20 +219,49 @@ alert("読み込んだ作業中データ数: " + (masters.activeWorks ? masters.
         clickProcSlot();
     }
 
-    function clickProcSlot() {
+function clickProcSlot() {
         updateUI('proc');
         const area = document.getElementById('button-area');
         area.innerHTML = "";
         const stations = localStorage.getItem('myStations');
         if(!stations) return;
+
         stations.split(',').forEach(p => {
             const btn = document.createElement('button');
             btn.className = "btn-blue";
             btn.innerText = p.trim();
             btn.onclick = () => { 
-                state.proc = p.trim(); 
-                state.staff = ''; state.mac = ''; 
-                clickStaffSlot(); 
+                const selectedProc = p.trim();
+                state.proc = selectedProc;
+                
+                // メモリから検索
+                const work = masters.activeWorks.find(w => 
+                    String(w.tehai).trim() === String(state.tehai).trim() && 
+                    String(w.proc).trim() === String(selectedProc).trim()
+                );
+
+                if (work) {
+                    state.staff = work.staff;
+                    state.mac = work.mac;
+                    state.targetRow = work.row;
+                    showConfirmScreen("end");
+                } else {
+                    // 【デバッグ用】一致しなかった理由を探るためのアラート
+                    if (masters.activeWorks.length > 0) {
+                        const firstWork = masters.activeWorks[0];
+                        alert(
+                            "判定に失敗しました\n\n" +
+                            "【スキャンしたデータ】\n" +
+                            "手配No: [" + state.tehai + "]\n" +
+                            "工程: [" + selectedProc + "]\n\n" +
+                            "【メモリにあるデータ】\n" +
+                            "手配No: [" + firstWork.tehai + "]\n" +
+                            "工程: [" + firstWork.proc + "]"
+                        );
+                    }
+                    state.staff = ''; state.mac = ''; 
+                    clickStaffSlot(); 
+                }
             };
             area.appendChild(btn);
         });
