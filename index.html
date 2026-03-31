@@ -334,6 +334,7 @@
         }
     }
 
+// 2. 開始モード：装置選択の直後に「開始ボタン」を出す（通信なし）
     function clickMacSlot() {
         if (!state.staff) return;
         updateUI('mac');
@@ -346,18 +347,18 @@
         );
         const list = filtered.map(r => String(r[2]).split(',').map(s => s.trim())).flat().filter(Boolean);
 
-        if (list.length === 0) {
-            state.mac = "-";
-            checkWorkStatus();
-        } else if (list.length === 1) {
+        if (list.length === 1) {
             state.mac = list[0];
-            checkWorkStatus();
+            renderConfirmStartUI(); // 1つなら即ボタン表示
+        } else if (list.length === 0) {
+            state.mac = "-";
+            renderConfirmStartUI();
         } else {
             list.forEach(m => {
                 const btn = document.createElement('button');
                 btn.className = "btn-blue btn-mac"; 
                 btn.innerText = m;
-                btn.onclick = () => { state.mac = m; checkWorkStatus(); };
+                btn.onclick = () => { state.mac = m; renderConfirmStartUI(); };
                 area.appendChild(btn);
             });
         }
