@@ -225,31 +225,55 @@ async function startScan() {
     }
 
     // 1. スキャン成功時の振り分け（元のシンプル版）
-function onScanSuccess(no) {
+// 1. スキャン成功時の振り分け：見つかったら即座に画面へ反映
+    function onScanSuccess(no) {
         const scanNo = String(no).trim();
-        // 状態をリセット（targetRowは-1で初期化してOK）
+        // 状態を初期化
         state = { tehai: scanNo, proc: '', staff: '', mac: '', targetRow: -1 };
         document.getElementById('tehaiDisplay').innerHTML = `手配No：<span style="font-size:36px; font-weight:900;">${scanNo}</span>`;
         
         const activeList = masters.activeWorks || [];
-        
-        // 【最重要】rowの数値は一切気にせず、手配Noが一致するかだけを見る
         const work = activeList.find(w => String(w.tehai).trim() === scanNo);
 
         if (work) {
-            // リストにあった ➔ 完了モード
+            // 【重要】見つかったデータをstateに格納
             state.proc = work.proc;
             state.staff = work.staff;
             state.mac = work.mac;
-            state.targetRow = work.row; // ここが-1でもGAS側で検索するので問題なし
+            state.targetRow = work.row;
+
+            // 【復活】画面上のスロット（表示枠）に直接書き込む
+            document.getElementById('val-proc').innerText = state.proc;
+            document.getElementById('val-staff').innerText = state.staff;
+            document.getElementById('val-mac').innerText = state.mac;
 
             showScreen('screenDetail');
-            renderConfirmEndUI(); 
+            renderConfirmEndUI(); // 完了確認画面へ
         } else {
-            // リストになかった ➔ 開始モード
+            // 新規：開始モードへ（スロットをクリア）
+            document.getElementById('val-proc').innerText = "---";
+            document.getElementById('val-staff').innerText = "---";
+            document.getElementById('val-mac').innerText = "---";
             showScreen('screenDetail');
             clickProcSlot();
         }
+    }
+
+    // 2. 完了モード専用のUI：ボタンだけでなく、スロットの状態も「確定」にする
+    function renderConfirmEndUI() {
+        updateUI('submit'); // 全スロットを「選択済み（白枠）」の状態にする
+        
+        const area = document.getElementById('button-area');
+        area.innerHTML = "";
+        
+        const btn = document.createElement('button');
+        btn.className = "btn-main btn-green";
+        btn.innerText = "完了報告を送る";
+        btn.style.marginTop = "20px";
+        btn.onclick = () => saveRecord("end");
+        
+        area.appendChild(btn);
+        document.getElementById('button-title').innerText = "【完了モード】前回の開始情報を引き継ぎました";
     }
 
 // 1. 表示更新関数：localStorageへの保存をやめ、メモリ上のmastersを優先する
