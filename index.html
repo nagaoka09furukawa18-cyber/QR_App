@@ -404,46 +404,40 @@ async function checkWorkStatus() {
         }
     }
 
-   async function saveRecord(type) {
+async function saveRecord(type) {
         const area = document.getElementById('button-area');
-        const originalContent = area.innerHTML;
         area.innerHTML = "<p>送信中...</p>";
 
         try {
             const url = `${GAS_URL}?action=saveWorkRecord&type=${type}&tehaiNo=${state.tehai}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&row=${state.targetRow}&deviceId=${deviceId}`;
             
-            // 1. GASへ送信（非同期）
+            // 送信（GAS側で「作業中」から「履歴」への移動が行われる）
             fetch(url, {mode: 'no-cors'}); 
 
-            // 2. 【ここがキモ】手元のメモリを即座に更新する
-            if (type === "start") {
-                // 開始したデータをメモリに追加
-                masters.activeWorks.push({
-                    tehai: String(state.tehai),
-                    proc: String(state.proc),
-                    staff: String(state.staff),
-                    mac: String(state.mac),
-                    row: 999 // 開始直後は正確な行番号不明だが、次回のgetAllMastersで補正される
-                });
-            } else {
-                // 完了したデータをメモリから削除
+            // 【重要】完了したなら、即座にメモリから削除して「絶対条件」を守る
+            if (type === "end") {
                 masters.activeWorks = masters.activeWorks.filter(w => 
-                    !(w.tehai === String(state.tehai) && w.proc === String(state.proc))
+                    !(String(w.tehai).trim() === state.tehai)
                 );
+            } else if (type === "start") {
+                // 開始ならリストに追加
+                masters.activeWorks.push({
+                    tehai: state.tehai,
+                    proc: state.proc,
+                    staff: state.staff,
+                    mac: state.mac,
+                    row: 999 // 仮
+                });
             }
 
-            // 3. 完了通知を出してメインへ
-            alert("報告を受理しました（通信中）");
+            alert(type === "end" ? "完了報告を送信しました" : "開始報告を送信しました");
             resetToMain();
 
-            // 4. バックグラウンドで最新の状態（行番号のズレ解消）を同期
-            setTimeout(() => {
-                refreshActiveWorks();
-            }, 2000);
+            // 2秒後に念のためサーバーの最新状態と完全同期
+            setTimeout(refreshActiveWorks, 2000);
 
         } catch(e) {
-            alert("送信失敗");
-            area.innerHTML = originalContent;
+            alert("通信エラーが発生しました");
         }
     }
 
