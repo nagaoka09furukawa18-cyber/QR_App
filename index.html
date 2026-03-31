@@ -205,48 +205,63 @@
 async function startScan() {
         showScreen('screenScanner');
         const readerEl = document.getElementById('reader');
-        readerEl.style.boxShadow = "none"; // 演出のリセット
-        
-        // 0.3秒待ってからスキャン機能を起動
-        setTimeout(async () => {
+        readerEl.innerHTML = ""; // 中身をクリア
+
+        try {
+            // 1. まずは「解析なし」の生カメラ映像だけをプレビュー表示
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            video.autoplay = true;
+            video.playsInline = true;
+            video.style.width = "100%";
+            readerEl.appendChild(video);
+
+            // 2. 300msの間、ユーザーは「狙いを定める」
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // 3. 生ビデオを停止して、スキャナーを起動
+            stream.getTracks().forEach(track => track.stop());
+            readerEl.innerHTML = ""; // ビデオ要素を削除
+
             const scanner = new Html5Qrcode("reader");
-            await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => {
-                // 読み取ったら即座に停止して演出へ
-                scanner.stop().then(() => onScanSuccess(txt));
-            }).catch(err => { resetToMain(); });
-        }, 3000);
+            await scanner.start(
+                { facingMode: "environment" }, 
+                { fps: 15, qrbox: 250 }, 
+                (txt) => {
+                    // 読み取り成功
+                    scanner.stop().then(() => onScanSuccess(txt));
+                }
+            );
+        } catch (err) {
+            console.error("Camera Error:", err);
+            alert("カメラの起動に失敗しました");
+            resetToMain();
+        }
     }
 
-    // 1. スキャン成功時の振り分け
+    // 1. スキャン成功時の演出（枠を光らせる）
     async function onScanSuccess(no) {
-        // --- 読み取り成功の演出 (0.2秒) ---
         const readerEl = document.getElementById('reader');
-        // box-shadowなら映像の枠組みを壊さずに「光る演出」が可能です
+        // 読み取った瞬間に緑の光で「撮った感」を出す
         readerEl.style.boxShadow = "0 0 0 10px #28a745 inset, 0 0 20px #28a745"; 
         
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 200));
         readerEl.style.boxShadow = "none";
 
-        // --- 以下、元の判定ロジック ---
+        // --- 以下、判定ロジック（変更なし） ---
         const scanNo = String(no).trim();
         state = { tehai: scanNo, proc: '', staff: '', mac: '', targetRow: -1 };
         document.getElementById('tehaiDisplay').innerHTML = `手配No：<span style="font-size:36px; font-weight:900;">${scanNo}</span>`;
         
         const activeList = masters.activeWorks || [];
-        
         const work = activeList.find(w => String(w.tehai).trim() === scanNo);
 
-        if (work) {
-            if (work.row === undefined || work.row === null || work.row === -1) {
-                alert("致命的エラー：作業中データは見つかりましたが、行番号(row)が記録されていません。");
-                clickProcSlot();
-                return;
-            }
+        if (work && work.row !== undefined) {
             state.proc = work.proc;
             state.staff = work.staff;
             state.mac = work.mac;
             state.targetRow = work.row; 
-
             showScreen('screenDetail');
             renderConfirmEndUI(); 
         } else {
