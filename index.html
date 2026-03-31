@@ -109,7 +109,9 @@
         try {
             const resp = await fetch(`${GAS_URL}?action=getAllMasters&deviceId=${deviceId}`);
             masters = await resp.json();
-            
+            // init関数内の masters = await resp.json(); の直後に追加
+console.log("取得した作業中データ:", masters.activeWorks);
+alert("読み込んだ作業中データ数: " + (masters.activeWorks ? masters.activeWorks.length : 0) + "件");
             if (masters && masters.device) {
                 updateStationDisplay(masters.device.name, masters.device.config);
                 document.getElementById('btnStartScan').style.display = "block";
