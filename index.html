@@ -329,18 +329,56 @@ async function checkWorkStatus() {
         }
     }
 
-    async function saveRecord(type) {
+   async function saveRecord(type) {
         const area = document.getElementById('button-area');
+        const originalContent = area.innerHTML;
         area.innerHTML = "<p>送信中...</p>";
+
         try {
             const url = `${GAS_URL}?action=saveWorkRecord&type=${type}&tehaiNo=${state.tehai}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&row=${state.targetRow}&deviceId=${deviceId}`;
-            await fetch(url, {mode: 'no-cors'});
-            alert("送信しました");
+            
+            // 1. GASへ送信（非同期）
+            fetch(url, {mode: 'no-cors'}); 
+
+            // 2. 【ここがキモ】手元のメモリを即座に更新する
+            if (type === "start") {
+                // 開始したデータをメモリに追加
+                masters.activeWorks.push({
+                    tehai: String(state.tehai),
+                    proc: String(state.proc),
+                    staff: String(state.staff),
+                    mac: String(state.mac),
+                    row: 999 // 開始直後は正確な行番号不明だが、次回のgetAllMastersで補正される
+                });
+            } else {
+                // 完了したデータをメモリから削除
+                masters.activeWorks = masters.activeWorks.filter(w => 
+                    !(w.tehai === String(state.tehai) && w.proc === String(state.proc))
+                );
+            }
+
+            // 3. 完了通知を出してメインへ
+            alert("報告を受理しました（通信中）");
             resetToMain();
-        } catch(e) { 
-            alert("送信失敗"); 
-            checkWorkStatus();
+
+            // 4. バックグラウンドで最新の状態（行番号のズレ解消）を同期
+            setTimeout(() => {
+                refreshActiveWorks();
+            }, 2000);
+
+        } catch(e) {
+            alert("送信失敗");
+            area.innerHTML = originalContent;
         }
+    }
+
+    // 作業中データだけを最新にする軽量関数
+    async function refreshActiveWorks() {
+        try {
+            const resp = await fetch(`${GAS_URL}?action=getAllMasters&deviceId=${deviceId}`);
+            const data = await resp.json();
+            masters.activeWorks = data.activeWorks;
+        } catch(e) { console.error("Sync Error", e); }
     }
 
     function updateUI(step) {
