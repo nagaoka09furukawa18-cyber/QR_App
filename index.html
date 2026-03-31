@@ -202,17 +202,29 @@
         } catch(e) { alert("保存失敗"); }
     }
 
-    async function startScan() {
+async function startScan() {
         showScreen('screenScanner');
-        const scanner = new Html5Qrcode("reader");
-        await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => {
-            scanner.stop().then(() => onScanSuccess(txt));
-        }).catch(err => { resetToMain(); });
+        const readerEl = document.getElementById('reader');
+        readerEl.style.border = "none"; // 演出用枠のリセット
+        
+        // 0.3秒待ってからスキャン機能を起動（心の準備時間）
+        setTimeout(async () => {
+            const scanner = new Html5Qrcode("reader");
+            await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => {
+                scanner.stop().then(() => onScanSuccess(txt));
+            }).catch(err => { resetToMain(); });
+        }, 300);
     }
 
 // 1. スキャン成功時の振り分け
-    function onScanSuccess(no) {
-        // 全てをリセット
+    async function onScanSuccess(no) {
+        // --- 読み取り成功の演出 (0.2秒) ---
+        const readerEl = document.getElementById('reader');
+        readerEl.style.border = "6px solid #28a745"; // 緑色の枠を表示
+        await new Promise(resolve => setTimeout(resolve, 200)); // 0.2秒保持
+        readerEl.style.border = "none";
+        
+        // 全てをリセット（これ以降は元のロジックのまま）
         const scanNo = String(no).trim();
         state = { tehai: scanNo, proc: '', staff: '', mac: '', targetRow: -1 };
         document.getElementById('tehaiDisplay').innerHTML = `手配No：<span style="font-size:36px; font-weight:900;">${scanNo}</span>`;
