@@ -234,53 +234,53 @@ function clickProcSlot() {
                 const selectedProc = p.trim();
                 state.proc = selectedProc;
                 
-                // --- 【修正箇所：デバッグと判定】 ---
                 const scanTehai = String(state.tehai).trim();
                 const scanProc = String(selectedProc).trim();
                 const activeList = masters.activeWorks || [];
-                const firstData = activeList.length > 0 ? activeList[0] : null;
 
-                // 比較対象をすべて表示（確認後、ここを消せば元通りです）
-                let debugMsg = `【照合確認】\n`;
-                debugMsg += `スキャン：No[${scanTehai}] / 工[${scanProc}]\n`;
-                if (firstData) {
-                    debugMsg += `メモリ：No[${firstData.tehai}] / 工[${firstData.proc}]\n`;
-                    debugMsg += `(全${activeList.length}件中 1件目を表示)`;
-                } else {
-                    debugMsg += "※メモリに作業中データがありません";
+                // 1. まずメモリにデータがあるか確認
+                if (activeList.length === 0) {
+                    alert("不一致理由：メモリ(activeWorks)が空です。");
+                    clickStaffSlot();
+                    return;
                 }
-                alert(debugMsg);
 
-                // メモリ内を検索
+                // 2. 一致するものを探す
                 const work = activeList.find(w => 
                     String(w.tehai).trim() === scanTehai && 
                     String(w.proc).trim() === scanProc
                 );
 
                 if (work) {
-                    // 一致した場合：作業者・装置をセットして完了画面へ
+                    // 【一致】完了画面へ
                     state.staff = work.staff;
                     state.mac = work.mac;
                     state.targetRow = work.row;
-                    
-                    // スロット表示を更新
                     document.getElementById('val-staff').innerText = state.staff;
                     document.getElementById('val-mac').innerText = state.mac;
-                    
-                    // 直接完了ボタン表示へ（checkWorkStatusを通さない）
                     showConfirmScreenFromMemory();
                 } else {
-                    // 一致しない場合：新規開始として作業者選択へ
+                    // 【不一致】理由を詳しく表示
+                    const m = activeList[0]; // 比較対象として1件目を取り出す
+                    let reason = "不一致の詳細：\n";
+                    
+                    if (String(m.tehai).trim() !== scanTehai) {
+                        reason += `・手配Noが違います\n  [${scanTehai}] vs [${m.tehai}]\n`;
+                    }
+                    if (String(m.proc).trim() !== scanProc) {
+                        reason += `・工程名が違います\n  [${scanProc}] vs [${m.proc}]\n`;
+                    }
+                    
+                    alert(reason);
                     state.staff = ''; state.mac = ''; 
                     clickStaffSlot(); 
                 }
-                // -----------------------------------
             };
             area.appendChild(btn);
         });
     }
 
-    // メモリから直接完了画面を作る補助関数（追加）
+    // 完了ボタンを表示する補助関数（まだ追加していなければ末尾に加えてください）
     function showConfirmScreenFromMemory() {
         updateUI('submit');
         const area = document.getElementById('button-area');
@@ -291,7 +291,6 @@ function clickProcSlot() {
         btn.onclick = () => saveRecord("end");
         area.appendChild(btn);
     }
-
     function clickStaffSlot() {
         if (!state.proc) return;
         updateUI('staff');
