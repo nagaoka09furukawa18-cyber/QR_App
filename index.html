@@ -290,7 +290,7 @@
         }
     }
 
-    async function checkWorkStatus() {
+async function checkWorkStatus() {
         updateUI('submit');
         const area = document.getElementById('button-area');
         area.innerHTML = "<p>状態確認中...</p>";
@@ -299,6 +299,17 @@
             const resp = await fetch(`${GAS_URL}?action=checkWorkStatus&tehaiNo=${state.tehai}&process=${encodeURIComponent(state.proc)}`);
             const res = await resp.json();
             state.targetRow = res.row;
+
+            // --- 【復活機能】開始済みのデータがある場合、作業者と装置を自動セット ---
+            if (res.status === "readyToEnd") {
+                state.staff = res.staff || "-";
+                state.mac = res.machine || "-";
+                
+                // 画面上部の表示（スロット）を更新
+                document.getElementById('val-staff').innerText = state.staff;
+                document.getElementById('val-mac').innerText = state.mac;
+            }
+            // --------------------------------------------------------------
 
             area.innerHTML = "";
             const btn = document.createElement('button');
