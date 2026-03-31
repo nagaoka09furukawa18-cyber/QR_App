@@ -437,27 +437,9 @@ async function checkWorkStatus() {
 
 async function saveRecord(type) {
         const area = document.getElementById('button-area');
-        const originalContent = area.innerHTML;
         area.innerHTML = "<p>送信中...</p>";
 
-        // メモリの即時更新（爆速維持のため再取得を待たない）
-            if (type === "end") {
-                masters.activeWorks = (masters.activeWorks || []).filter(w => 
-                    !(String(w.tehai).trim() === String(state.tehai).trim() && String(w.proc).trim() === String(state.proc).trim())
-                );
-            } else {
-                if(!masters.activeWorks) masters.activeWorks = [];
-                masters.activeWorks.push({
-                    tehai: state.tehai, 
-                    proc: state.proc, 
-                    staff: state.staff, 
-                    mac: state.mac, 
-                    row: 9999 // ★ -1ではなく、正の整数を入れることで「特定できない」エラーを回避
-                });
-            }
-
         try {
-            // URLを安全に構築
             const params = new URLSearchParams({
                 action: 'saveWorkRecord',
                 type: type, 
@@ -465,34 +447,29 @@ async function saveRecord(type) {
                 process: state.proc,
                 staff: state.staff,
                 machine: state.mac,
-                row: state.targetRow,
+                row: state.targetRow, // フロントで持っている値をそのまま送る
                 deviceId: deviceId
             });
 
-            const url = `${GAS_URL}?${params.toString()}`;
-            
-            // 送信（no-cors）
-            fetch(url, { mode: 'no-cors' }); 
+            // 送信（結果を待たずにalertへ。これが爆速の秘訣）
+            fetch(`${GAS_URL}?${params.toString()}`, { mode: 'no-cors' }); 
 
-            // メモリの即時更新（絶対条件の維持）
+            // 完了(end)した時だけ、メモリ上の「作業中リスト」から即座に消去する
             if (type === "end") {
                 masters.activeWorks = (masters.activeWorks || []).filter(w => 
-                    !(String(w.tehai).trim() === String(state.tehai).trim() && String(w.proc).trim() === String(state.proc).trim())
+                    !(String(w.tehai).trim() === String(state.tehai).trim())
                 );
-            } else {
-                if(!masters.activeWorks) masters.activeWorks = [];
-                masters.activeWorks.push({
-                    tehai: state.tehai, proc: state.proc, staff: state.staff, mac: state.mac, row: -1
-                });
             }
 
             alert(type === "end" ? "完了報告を送信しました" : "開始報告を送信しました");
+            
+            // 画面を戻し、裏側で1.5秒後に最新データを同期する
             resetToMain();
             setTimeout(refreshActiveWorks, 1500);
 
         } catch(e) {
             alert("送信失敗");
-            area.innerHTML = originalContent;
+            resetToMain();
         }
     }
 
