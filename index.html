@@ -234,46 +234,57 @@ function clickProcSlot() {
                 const selectedProc = p.trim();
                 state.proc = selectedProc;
                 
-                const scanTehai = String(state.tehai).trim();
-                const scanProc = String(selectedProc).trim();
                 const activeList = masters.activeWorks || [];
-
-                // 1. まずメモリにデータがあるか確認
                 if (activeList.length === 0) {
-                    alert("不一致理由：メモリ(activeWorks)が空です。");
-                    clickStaffSlot();
-                    return;
+                    alert("検証結果：メモリが空です（サーバーからの取得失敗）");
+                    return clickStaffSlot();
                 }
 
-                // 2. 一致するものを探す
-                const work = activeList.find(w => 
-                    String(w.tehai).trim() === scanTehai && 
-                    String(w.proc).trim() === scanProc
-                );
+                const m = activeList[0]; // 比較対象
 
-                if (work) {
-                    // 【一致】完了画面へ
-                    state.staff = work.staff;
-                    state.mac = work.mac;
-                    state.targetRow = work.row;
-                    document.getElementById('val-staff').innerText = state.staff;
-                    document.getElementById('val-mac').innerText = state.mac;
-                    showConfirmScreenFromMemory();
+                // --- 【真実の検証エリア】 ---
+                const v = {
+                    tehai: {
+                        scan: state.tehai,
+                        memo: m.tehai,
+                        scanType: typeof state.tehai,
+                        memoType: typeof m.tehai,
+                        scanLen: String(state.tehai).length,
+                        memoLen: String(m.tehai).length
+                    },
+                    proc: {
+                        scan: selectedProc,
+                        memo: m.proc,
+                        scanLen: String(selectedProc).length,
+                        memoLen: String(m.proc).length
+                    }
+                };
+
+                // 不一致箇所の特定
+                let report = "【不一致の真実】\n";
+                if (v.tehai.scan != v.tehai.memo) {
+                    report += `●手配No自体が別物です\n`;
+                } else if (v.tehai.scan !== v.tehai.memo) {
+                    report += `●手配Noの「型」が違います\n  スキャン:${v.tehai.scanType} / メモリ:${v.tehai.memoType}\n`;
+                } else if (v.tehai.scanLen !== v.tehai.memoLen) {
+                    report += `●手配Noの「文字数」が違います\n  スキャン:${v.tehai.scanLen}文字 / メモリ:${v.tehai.memoLen}文字\n`;
+                }
+
+                if (v.proc.scan !== v.proc.memo) {
+                    report += `●工程名が一致しません\n  [${v.proc.scan}](${v.proc.scanLen}文字)\n  [${v.proc.memo}](${v.proc.memoLen}文字)\n`;
+                }
+
+                // 判定が通る場合はレポートを出さず、通らない場合のみ表示
+                const isMatch = (v.tehai.scan == v.tehai.memo && v.proc.scan == v.proc.memo);
+                if (!isMatch) {
+                    alert(report);
+                    clickStaffSlot();
                 } else {
-                    // 【不一致】理由を詳しく表示
-                    const m = activeList[0]; // 比較対象として1件目を取り出す
-                    let reason = "不一致の詳細：\n";
-                    
-                    if (String(m.tehai).trim() !== scanTehai) {
-                        reason += `・手配Noが違います\n  [${scanTehai}] vs [${m.tehai}]\n`;
-                    }
-                    if (String(m.proc).trim() !== scanProc) {
-                        reason += `・工程名が違います\n  [${scanProc}] vs [${m.proc}]\n`;
-                    }
-                    
-                    alert(reason);
-                    state.staff = ''; state.mac = ''; 
-                    clickStaffSlot(); 
+                    // 一致した場合のみ次へ
+                    state.staff = m.staff;
+                    state.mac = m.mac;
+                    state.targetRow = m.row;
+                    showConfirmScreenFromMemory();
                 }
             };
             area.appendChild(btn);
