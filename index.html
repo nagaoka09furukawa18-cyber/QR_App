@@ -204,91 +204,51 @@
 
 async function startScan() {
         showScreen('screenScanner');
-        const readerEl = document.getElementById('reader');
-        readerEl.innerHTML = ""; // 中身をクリア
-
-        try {
-            // 1. まずは「解析なし」の生カメラ映像だけをプレビュー表示
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-            const video = document.createElement('video');
-            video.srcObject = stream;
-            video.autoplay = true;
-            video.playsInline = true;
-            video.style.width = "100%";
-            readerEl.appendChild(video);
-
-            // 2. 300msの間、ユーザーは「狙いを定める」
-            await new Promise(resolve => setTimeout(resolve, 3000));
-
-            // 3. 生ビデオを停止して、スキャナーを起動
-            stream.getTracks().forEach(track => track.stop());
-            readerEl.innerHTML = ""; // ビデオ要素を削除
-
-            const scanner = new Html5Qrcode("reader");
-            await scanner.start(
-                { facingMode: "environment" }, 
-                { fps: 15, qrbox: 250 }, 
-                (txt) => {
-                    // 読み取り成功
-                    scanner.stop().then(() => onScanSuccess(txt));
-                }
-            );
-        } catch (err) {
-            console.error("Camera Error:", err);
-            alert("カメラの起動に失敗しました");
-            resetToMain();
-        }
+        const scanner = new Html5Qrcode("reader");
+        await scanner.start(
+            { facingMode: "environment" }, 
+            { fps: 10, qrbox: 250 }, 
+            (txt) => {
+                // 読み取ったら即座に停止して判定へ
+                scanner.stop().then(() => onScanSuccess(txt));
+            }
+        ).catch(err => { 
+            console.error(err);
+            resetToMain(); 
+        });
     }
 
-    // 1. スキャン成功時の演出（枠を光らせる）
-    async function onScanSuccess(no) {
-        const readerEl = document.getElementById('reader');
-        // 読み取った瞬間に緑の光で「撮った感」を出す
-        readerEl.style.boxShadow = "0 0 0 10px #28a745 inset, 0 0 20px #28a745"; 
-        
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        readerEl.style.boxShadow = "none";
-
-        // --- 以下、判定ロジック（変更なし） ---
+    // 1. スキャン成功時の振り分け（元のシンプル版）
+    function onScanSuccess(no) {
         const scanNo = String(no).trim();
         state = { tehai: scanNo, proc: '', staff: '', mac: '', targetRow: -1 };
         document.getElementById('tehaiDisplay').innerHTML = `手配No：<span style="font-size:36px; font-weight:900;">${scanNo}</span>`;
         
         const activeList = masters.activeWorks || [];
+        
+        // 手配Noで検索
         const work = activeList.find(w => String(w.tehai).trim() === scanNo);
 
-        if (work && work.row !== undefined) {
+        if (work) {
+            // 行番号チェック（安全策）
+            if (work.row === undefined || work.row === null || work.row === -1) {
+                alert("作業中データに行番号が含まれていません。");
+                clickProcSlot();
+                return;
+            }
+            // 完了モード
             state.proc = work.proc;
             state.staff = work.staff;
             state.mac = work.mac;
             state.targetRow = work.row; 
+
             showScreen('screenDetail');
             renderConfirmEndUI(); 
         } else {
+            // 開始モード
             showScreen('screenDetail');
             clickProcSlot();
         }
-    }
-
-    // 完了モード専用のUI表示
-    function renderConfirmEndUI() {
-        updateUI('submit');
-        // スロット表示を更新
-        document.getElementById('val-proc').innerText = state.proc;
-        document.getElementById('val-staff').innerText = state.staff;
-        document.getElementById('val-mac').innerText = state.mac;
-
-        const area = document.getElementById('button-area');
-        area.innerHTML = "";
-        
-        const btn = document.createElement('button');
-        btn.className = "btn-main btn-green";
-        btn.innerText = "完了報告を送る";
-        btn.style.marginTop = "20px";
-        btn.onclick = () => saveRecord("end");
-        
-        area.appendChild(btn);
-        document.getElementById('button-title').innerText = "【完了モード】前回の開始情報を引き継ぎました";
     }
 
 　　function clickProcSlot() {
