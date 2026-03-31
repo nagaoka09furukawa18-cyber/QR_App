@@ -370,7 +370,25 @@ function clickMacSlot() {
             });
         }
     }
+// 開始報告の最終確認画面を表示する（通信なし・爆速版）
+    function renderConfirmStartUI() {
+        updateUI('submit'); // UI状態を「報告確認」へ
+        
+        // スロットの表示を更新
+        document.getElementById('val-staff').innerText = state.staff;
+        document.getElementById('val-mac').innerText = state.mac;
 
+        const area = document.getElementById('button-area');
+        area.innerHTML = "";
+        
+        const btn = document.createElement('button');
+        btn.className = "btn-main btn-blue";
+        btn.innerText = "開始報告を送る";
+        btn.onclick = () => saveRecord("start");
+        
+        area.appendChild(btn);
+        document.getElementById('button-title').innerText = "【開始モード】内容を確認して送信してください";
+    }
 async function checkWorkStatus() {
         updateUI('submit');
         const area = document.getElementById('button-area');
