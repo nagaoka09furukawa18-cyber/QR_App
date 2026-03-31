@@ -218,7 +218,7 @@ async function startScan() {
             readerEl.appendChild(video);
 
             // 2. 300msの間、ユーザーは「狙いを定める」
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, 3000));
 
             // 3. 生ビデオを停止して、スキャナーを起動
             stream.getTracks().forEach(track => track.stop());
@@ -246,7 +246,7 @@ async function startScan() {
         // 読み取った瞬間に緑の光で「撮った感」を出す
         readerEl.style.boxShadow = "0 0 0 10px #28a745 inset, 0 0 20px #28a745"; 
         
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 2000));
         readerEl.style.boxShadow = "none";
 
         // --- 以下、判定ロジック（変更なし） ---
