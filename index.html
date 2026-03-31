@@ -109,9 +109,7 @@
         try {
             const resp = await fetch(`${GAS_URL}?action=getAllMasters&deviceId=${deviceId}`);
             masters = await resp.json();
-            // init関数内の masters = await resp.json(); の直後に追加
-console.log("取得した作業中データ:", masters.activeWorks);
-alert("読み込んだ作業中データ数: " + (masters.activeWorks ? masters.activeWorks.length : 0) + "件");
+            
             if (masters && masters.device) {
                 updateStationDisplay(masters.device.name, masters.device.config);
                 document.getElementById('btnStartScan').style.display = "block";
@@ -235,63 +233,34 @@ function clickProcSlot() {
                 state.proc = selectedProc;
                 
                 const activeList = masters.activeWorks || [];
-                if (activeList.length === 0) {
-                    alert("検証結果：メモリが空です（サーバーからの取得失敗）");
-                    return clickStaffSlot();
-                }
 
-                const m = activeList[0]; // 比較対象
+                // 比較の際は、型に依存しないようString化して比較（正攻法）
+                const work = activeList.find(w => 
+                    String(w.tehai).trim() === String(state.tehai).trim() && 
+                    String(w.proc).trim() === String(selectedProc).trim()
+                );
 
-                // --- 【真実の検証エリア】 ---
-                const v = {
-                    tehai: {
-                        scan: state.tehai,
-                        memo: m.tehai,
-                        scanType: typeof state.tehai,
-                        memoType: typeof m.tehai,
-                        scanLen: String(state.tehai).length,
-                        memoLen: String(m.tehai).length
-                    },
-                    proc: {
-                        scan: selectedProc,
-                        memo: m.proc,
-                        scanLen: String(selectedProc).length,
-                        memoLen: String(m.proc).length
-                    }
-                };
-
-                // 不一致箇所の特定
-                let report = "【不一致の真実】\n";
-                if (v.tehai.scan != v.tehai.memo) {
-                    report += `●手配No自体が別物です\n`;
-                } else if (v.tehai.scan !== v.tehai.memo) {
-                    report += `●手配Noの「型」が違います\n  スキャン:${v.tehai.scanType} / メモリ:${v.tehai.memoType}\n`;
-                } else if (v.tehai.scanLen !== v.tehai.memoLen) {
-                    report += `●手配Noの「文字数」が違います\n  スキャン:${v.tehai.scanLen}文字 / メモリ:${v.tehai.memoLen}文字\n`;
-                }
-
-                if (v.proc.scan !== v.proc.memo) {
-                    report += `●工程名が一致しません\n  [${v.proc.scan}](${v.proc.scanLen}文字)\n  [${v.proc.memo}](${v.proc.memoLen}文字)\n`;
-                }
-
-                // 判定が通る場合はレポートを出さず、通らない場合のみ表示
-                const isMatch = (v.tehai.scan == v.tehai.memo && v.proc.scan == v.proc.memo);
-                if (!isMatch) {
-                    alert(report);
-                    clickStaffSlot();
-                } else {
-                    // 一致した場合のみ次へ
-                    state.staff = m.staff;
-                    state.mac = m.mac;
-                    state.targetRow = m.row;
+                if (work) {
+                    // 作業中の場合はデータを復元
+                    state.staff = work.staff;
+                    state.mac = work.mac;
+                    state.targetRow = work.row;
+                    
+                    document.getElementById('val-staff').innerText = state.staff;
+                    document.getElementById('val-mac').innerText = state.mac;
+                    
                     showConfirmScreenFromMemory();
+                } else {
+                    // 新規作業の場合は作業者選択へ
+                    state.staff = ''; state.mac = ''; 
+                    clickStaffSlot(); 
                 }
             };
             area.appendChild(btn);
         });
     }
 
-    // 完了ボタンを表示する補助関数（まだ追加していなければ末尾に加えてください）
+    // メモリ内のデータから直接完了報告画面を構成
     function showConfirmScreenFromMemory() {
         updateUI('submit');
         const area = document.getElementById('button-area');
@@ -302,6 +271,7 @@ function clickProcSlot() {
         btn.onclick = () => saveRecord("end");
         area.appendChild(btn);
     }
+    
     function clickStaffSlot() {
         if (!state.proc) return;
         updateUI('staff');
