@@ -335,30 +335,37 @@
     }
 
 // 2. 開始モード：装置選択の直後に「開始ボタン」を出す（通信なし）
-    function clickMacSlot() {
+function clickMacSlot() {
         if (!state.staff) return;
         updateUI('mac');
         const area = document.getElementById('button-area');
         area.innerHTML = "";
 
+        // 担当工程と作業者に紐づく装置をフィルタリング
         const filtered = masters.machines.filter(r => 
             String(r[0]).trim() === String(state.proc).trim() && 
             String(r[1]).includes(state.staff)
         );
-        const list = filtered.map(r => String(r[2]).split(',').map(s => s.trim())).flat().filter(Boolean);
+        
+        // 重複排除してリスト化
+        const list = [...new Set(filtered.map(r => String(r[2]).split(',').map(s => s.trim())).flat())].filter(Boolean);
 
-        if (list.length === 1) {
-            state.mac = list[0];
-            renderConfirmStartUI(); // 1つなら即ボタン表示
-        } else if (list.length === 0) {
+        if (list.length === 0) {
             state.mac = "-";
-            renderConfirmStartUI();
+            renderConfirmStartUI(); // 装置がない場合は即座に開始確認へ
+        } else if (list.length === 1) {
+            state.mac = list[0];
+            renderConfirmStartUI(); // 1つしかない場合も即座に開始確認へ
         } else {
+            // 複数ある場合は選択ボタンを表示
             list.forEach(m => {
                 const btn = document.createElement('button');
                 btn.className = "btn-blue btn-mac"; 
                 btn.innerText = m;
-                btn.onclick = () => { state.mac = m; renderConfirmStartUI(); };
+                btn.onclick = () => { 
+                    state.mac = m; 
+                    renderConfirmStartUI(); // ★ここ：選択したら即座にボタン画面へ
+                };
                 area.appendChild(btn);
             });
         }
