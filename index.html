@@ -430,38 +430,62 @@ async function checkWorkStatus() {
 
 async function saveRecord(type) {
         const area = document.getElementById('button-area');
+        const originalContent = area.innerHTML;
         area.innerHTML = "<p>送信中...</p>";
 
-        try {
-            const url = `${GAS_URL}?action=saveWorkRecord&type=${type}&tehaiNo=${state.tehai}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&row=${state.targetRow}&deviceId=${deviceId}`;
-            
-            // 送信（GAS側で「作業中」から「履歴」への移動が行われる）
-            fetch(url, {mode: 'no-cors'}); 
+        // 重要：完了モードなのに targetRow が -1（未特定）だとサーバー側で移動処理が走らない可能性がある
+        if (type === "end" && state.targetRow < 0) {
+            alert("エラー：終了対象の行番号が特定できません。再試行してください。");
+            resetToMain();
+            return;
+        }
 
-            // 【重要】完了したなら、即座にメモリから削除して「絶対条件」を守る
+        try {
+            // パラメータを確実に構築
+            const params = new URLSearchParams({
+                action: 'saveWorkRecord',
+                type: type, // "start" か "end"
+                tehaiNo: state.tehai,
+                process: state.proc,
+                staff: state.staff,
+                machine: state.mac,
+                row: state.targetRow,
+                deviceId: deviceId
+            });
+
+            const url = `${GAS_URL}?${params.toString()}`;
+            
+            // サーバーへ送信（no-corsだと成功・失敗がブラウザで拾えないが、リクエストは飛ぶ）
+            fetch(url, { mode: 'no-cors' }); 
+
+            // --- フロントエンドのメモリ管理 ---
             if (type === "end") {
-                masters.activeWorks = masters.activeWorks.filter(w => 
-                    !(String(w.tehai).trim() === state.tehai)
+                // 完了したなら、メモリから即座に消す（これが「絶対条件」）
+                masters.activeWorks = (masters.activeWorks || []).filter(w => 
+                    !(String(w.tehai).trim() === String(state.tehai).trim() && String(w.proc).trim() === String(state.proc).trim())
                 );
-            } else if (type === "start") {
-                // 開始ならリストに追加
+            } else {
+                // 開始なら、メモリに仮追加（次回のスキャンで「完了モード」にするため）
+                if(!masters.activeWorks) masters.activeWorks = [];
                 masters.activeWorks.push({
                     tehai: state.tehai,
                     proc: state.proc,
                     staff: state.staff,
                     mac: state.mac,
-                    row: 999 // 仮
+                    row: -1 // まだ確定前
                 });
             }
 
             alert(type === "end" ? "完了報告を送信しました" : "開始報告を送信しました");
             resetToMain();
 
-            // 2秒後に念のためサーバーの最新状態と完全同期
-            setTimeout(refreshActiveWorks, 2000);
+            // データの整合性を保つため、少し遅らせてサーバーと同期
+            setTimeout(refreshActiveWorks, 1500);
 
         } catch(e) {
-            alert("通信エラーが発生しました");
+            console.error("Save Error:", e);
+            alert("送信失敗。通信環境を確認してください。");
+            area.innerHTML = originalContent;
         }
     }
 
