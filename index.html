@@ -181,15 +181,28 @@
         }
     }
 
-    // --- 6. UI構築（開始モード：装置選択 → 送信ボタン） ---
+// --- 6. UI構築（開始モード：装置選択 → 送信ボタン） ---
     function renderStartMacUI() {
         refreshSlots('mac');
         const area = document.getElementById('button-area');
         area.innerHTML = "";
         document.getElementById('button-title').innerText = "装置を選択してください";
 
-        const filtered = masters.machines.filter(r => String(r[0]).trim() === state.proc && String(r[1]).includes(state.staff));
-        const list = [...new Set(filtered.map(r => String(r[2]).split(',').map(s => s.trim())).flat())].filter(Boolean);
+        // マスタから「工程が一致」し、かつ「作業者が含まれる」行を抽出
+        const filtered = masters.machines.filter(r => {
+            const masterProc = String(r[0] || "").trim();
+            const masterStaffs = String(r[1] || "").trim();
+            
+            // 工程が一致しているか
+            if (masterProc !== state.proc) return false;
+
+            // 作業者列をカンマでバラして、選択された作業者が含まれているかチェック
+            const staffList = masterStaffs.split(',').map(s => s.trim());
+            return staffList.includes(state.staff);
+        });
+        
+        // 装置名リストを作成（重複排除）
+        const list = [...new Set(filtered.map(r => String(r[2] || "").split(',').map(s => s.trim())).flat())].filter(Boolean);
 
         const finalize = (m) => {
             state.mac = m;
@@ -203,13 +216,16 @@
             area.appendChild(btn);
         };
 
-        if (list.length <= 1) {
-            finalize(list[0] || "-");
+        if (list.length === 0) {
+            finalize("-");
+        } else if (list.length === 1) {
+            finalize(list[0]);
         } else {
             list.forEach(m => {
                 const btn = document.createElement('button');
                 btn.className = "btn-blue";
                 btn.style.width = "100%";
+                btn.style.display = "block"; // 縦に並べる
                 btn.innerText = m;
                 btn.onclick = () => finalize(m);
                 area.appendChild(btn);
