@@ -4,7 +4,6 @@
   <base target="_top">
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <style>
-    /* CSSは以前のものをそのまま使えます */
     body { font-family: sans-serif; padding: 20px; color: #333; margin-top: 50px; }
     .header-area { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #dee2e6; }
     #orderNo { font-size: 28px; padding: 5px 10px; width: 300px; font-weight: bold; border: 2px solid #007bff; border-radius: 4px; }
@@ -12,13 +11,23 @@
     table { border-collapse: collapse; width: 100%; margin-top: 10px; }
     th { background: #444; color: white; padding: 10px; border: 1px solid #ccc; }
     td { border: 1px solid #ccc; height: 40px; }
-    input.data-input { width: 100%; height: 100%; border: none; padding: 0 8px; box-sizing: border-box; font-size: 16px; }
-    .save-btn { margin-top: 30px; padding: 15px 50px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 22px; font-weight: bold; }
+    .proc-name { background: #f2f2f2; font-weight: bold; width: 120px; text-align: center; }
+    .proc-select { width: 95%; height: 80%; font-size: 14px; }
+    input.data-input { width: 100%; height: 100%; border: none; padding: 0 8px; box-sizing: border-box; font-size: 16px; text-align: center; }
+    .save-btn { margin-top: 30px; padding: 15px 50px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 22px; font-weight: bold; box-shadow: 0 4px #1e7e34; }
+    .save-btn:active { transform: translateY(2px); box-shadow: 0 2px #1e7e34; }
+    
+    @media print {
+      body * { visibility: hidden; }
+      #print-area, #print-area * { visibility: visible; }
+      #print-area { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
+    }
+    #print-area { display: none; }
   </style>
 </head>
 <body>
   <div id="main-ui">
-    <h2>指示書入力 v4.1.0 (GitHub版)</h2>
+    <h2>指示書入力 v4.1.1 (GitHub版)</h2>
     <div class="header-area">
       <div>
         <label>手配No (入力でQR生成):</label><br>
@@ -27,99 +36,128 @@
       </div>
       <div id="qr-section">
         <canvas id="qr-canvas"></canvas>
-        <div id="url-display"></div>
+        <div id="url-display" style="font-size: 12px; margin-top: 5px; font-weight: bold;"></div>
       </div>
     </div>
-    <div id="table-container">読み込み中...</div>
+    <div id="table-container">マスターデータ読み込み中...</div>
     <button id="saveBtn" class="save-btn" onclick="processAll()" style="display:none;">指示書発行 (保存＆印刷)</button>
   </div>
 
+  <div id="print-area"></div>
+
   <script>
-    // ★ここにあなたのGASのWebアプリURLを貼り付けてください
+    // ★重要★ GASの新しいデプロイURLをここに貼り付けてください
     const GAS_URL = "https://script.google.com/macros/s/ここにID/exec";
+    let masterData = null;
 
     window.onload = () => {
       document.getElementById('createDate').valueAsDate = new Date();
       
-      // GASからマスターデータを取得
+      // GASから工程マスターと入力項目を取得
       fetch(`${GAS_URL}?method=getMasters`)
-        .then(response => response.json())
+        .then(res => res.json())
         .then(data => {
+          masterData = data;
           drawTable(data);
           document.getElementById('saveBtn').style.display = 'block';
         })
-        .catch(err => console.error("データ取得エラー:", err));
+        .catch(err => {
+          document.getElementById('table-container').innerText = "エラー: GASのURLを確認してください。";
+          console.error(err);
+        });
     };
 
     function updateQR() {
       const orderNo = document.getElementById('orderNo').value;
       const canvas = document.getElementById('qr-canvas');
-      if (!orderNo) return;
+      const urlArea = document.getElementById('url-display');
+      if (!orderNo) { urlArea.innerText = ""; return; }
+      urlArea.innerText = "QR: " + orderNo;
       QRCode.toCanvas(canvas, orderNo, { width: 200, margin: 2 });
     }
 
-function drawTable(data) {
-  let html = '<table><thead><tr><th>工程</th>';
-  html += data.inputs.map(i => `<th>${i}</th>`).join('') + '</tr></thead><tbody>';
+    function drawTable(data) {
+      let html = '<table><thead><tr><th>工程</th>' + data.inputs.map(i => `<th>${i}</th>`).join('') + '</tr></thead><tbody>';
 
-  data.processes.forEach((proc, r) => {
-    html += '<tr>';
-    
-    // --- 工程名セルの制御 ---
-    if (proc === "予備") {
-      // 「予備」行の場合は、プルダウンを作成
-      let options = data.processes
-        .filter(p => p !== "予備") // 選択肢から「予備」を除外
-        .map(p => `<option value="${p}">${p}</option>`).join('');
-      
-      html += `<td class="proc-name">
-                <select class="proc-select" data-row="${r}">
-                  <option value="">(選択)</option>
-                  ${options}
-                </select>
-               </td>`;
-    } else {
-      // 通常の工程はそのまま表示
-      html += `<td class="proc-name" data-proc="${proc}">${proc}</td>`;
+      data.processes.forEach((proc, r) => {
+        html += '<tr>';
+        // --- 工程名セルの表示 ---
+        if (proc.includes("予備")) {
+          // 「予備」が含まれる行はプルダウンにする
+          let options = data.processes
+            .filter(p => !p.includes("予備"))
+            .map(p => `<option value="${p}">${p}</option>`).join('');
+          html += `<td class="proc-name"><select class="proc-select"><option value="">(選択)</option>${options}</select></td>`;
+        } else {
+          html += `<td class="proc-name">${proc}</td>`;
+        }
+
+        // --- 入力項目の表示 ---
+        data.inputs.forEach((inputName, c) => {
+          let type = (inputName === "納期") ? "date" : "number";
+          html += `<td><input type="${type}" class="data-input" data-col="${inputName}"></td>`;
+        });
+        html += '</tr>';
+      });
+      document.getElementById('table-container').innerHTML = html + '</tbody></table>';
     }
 
-    // --- 入力項目の制御（指示順、ST、納期） ---
-    data.inputs.forEach((inputName, c) => {
-      let type = "text";
-      if (inputName === "指示順" || inputName === "ST") type = "number";
-      else if (inputName === "納期") type = "date";
+    function processAll() {
+      const orderNo = document.getElementById('orderNo').value;
+      const createDate = document.getElementById('createDate').value;
+      if (!orderNo) { alert("手配Noを入力してください"); return; }
 
-      html += `<td><input type="${type}" class="data-input" data-row="${r}" data-col="${c}"></td>`;
-    });
-    html += '</tr>';
-  });
-  
-  document.getElementById('table-container').innerHTML = html + '</tbody></table>';
-}
+      const rows = document.querySelectorAll('tbody tr');
+      let allData = [];
+      let printTableBody = "";
 
-// processAll（HTML側）でデータを送る際、工程名も一緒に送るようにします
-function processAll() {
-  const rows = document.querySelectorAll('tbody tr');
-  let allData = [];
-  
-  rows.forEach((row, i) => {
-    let rowValues = {};
-    // 工程名の取得（通常テキストか、プルダウンか）
-    let select = row.querySelector('.proc-select');
-    rowValues.procName = select ? select.value : row.cells[0].innerText;
-    
-    // 入力値の取得 [指示順, ST, 納期]
-    rowValues.inputs = Array.from(row.querySelectorAll('.data-input')).map(input => input.value);
-    
-    // 工程名が選択されている、または入力がある場合のみ追加
-    if (rowValues.procName && (rowValues.inputs[0] || rowValues.inputs[1] || rowValues.inputs[2])) {
-      allData.push(rowValues);
+      rows.forEach(row => {
+        let rowValues = [];
+        let select = row.querySelector('.proc-select');
+        let procName = select ? select.value : row.cells[0].innerText;
+        
+        let inputs = Array.from(row.querySelectorAll('.data-input')).map(input => input.value || "");
+        
+        // 入力がある行だけを保存対象にする
+        if (procName && (inputs[0] || inputs[1] || inputs[2])) {
+          allData.push([procName, ...inputs]); // [工程名, 指示順, ST, 納期] の順
+          
+          // 印刷用テーブルの作成
+          printTableBody += `<tr><td style="text-align:center; background:#eee;">${procName}</td>`;
+          inputs.forEach(v => { printTableBody += `<td style="text-align:center;">${v}</td>`; });
+          printTableBody += `</tr>`;
+        }
+      });
+
+      if (allData.length === 0) { alert("工程データが入力されていません"); return; }
+
+      // 印刷エリアの構築
+      const qrDataUrl = document.getElementById('qr-canvas').toDataURL();
+      document.getElementById('print-area').innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #000; padding-bottom:10px;">
+          <div><h1>加工指示書</h1><p>手配No: <strong>${orderNo}</strong> | 作成日: ${createDate}</p></div>
+          <div style="text-align:center;"><img src="${qrDataUrl}" style="width:120px;"><div style="font-size:10px;">${orderNo}</div></div>
+        </div>
+        <table style="width:100%; border-collapse:collapse; margin-top:20px;">
+          <thead><tr><th style="border:1px solid #000;">工程</th>${masterData.inputs.map(i => `<th style="border:1px solid #000;">${i}</th>`).join('')}</tr></thead>
+          <tbody>${printTableBody}</tbody>
+        </table>
+      `;
+
+      // GASへ保存リクエスト
+      const url = `${GAS_URL}?method=saveOnly&orderNo=${encodeURIComponent(orderNo)}&createDate=${createDate}&allData=${encodeURIComponent(JSON.stringify(allData))}`;
+
+      fetch(url)
+        .then(res => res.json())
+        .then(result => {
+          if (result === "保存成功") {
+            window.print(); // 保存成功したら印刷ダイアログを出す
+          } else {
+            alert("保存に失敗しました: " + result);
+          }
+        })
+        .catch(err => alert("通信エラーが発生しました。"));
     }
-  });
-
-  // GASへ送信
-  // ... fetch処理 ...
-}
   </script>
 </body>
 </html>
