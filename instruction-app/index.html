@@ -291,6 +291,28 @@
       const result = await res.json();
       if (result === "保存成功") window.print(); else alert(result);
     }
+    
+    async function runArchive() {
+  const btn = document.getElementById('archive-btn');
+  const originalText = btn.innerText;
+  
+  if (!confirm("完了した案件をアーカイブシートへ移動しますか？")) return;
+  
+  btn.innerText = "処理中...";
+  btn.disabled = true;
+  
+  google.script.run.withSuccessHandler(res => {
+    alert(res);
+    btn.innerText = originalText;
+    btn.disabled = false;
+    // 画面をリロードして最新状態にする
+    location.reload();
+  }).withFailureHandler(err => {
+    alert("エラーが発生しました: " + err);
+    btn.innerText = originalText;
+    btn.disabled = false;
+  }).checkAndArchiveCompletedOrders();
+}
   </script>
 </body>
 </html>
