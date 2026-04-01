@@ -70,4 +70,48 @@
       const btnGrid = document.getElementById('button-grid'); const extraSelect = document.getElementById('extra-proc-select');
       extraSelect.innerHTML = '<option value="">-- 正規工程を選択 --</option>';
       master.processes.forEach((proc, i) => {
-        thr.innerHTML += `<th id="h-p-${i}">${proc}</th>`; trO.innerHTML += `<td id="d-o-${i}"></td>`; trS.innerHTML += `<td id="d-s-${i}"></td>
+        thr.innerHTML += `<th id="h-p-${i}">${proc}</th>`; trO.innerHTML += `<td id="d-o-${i}"></td>`; trS.innerHTML += `<td id="d-s-${i}"></td>`; trL.innerHTML += `<td id="d-l-${i}"></td>`;
+        const btn = document.createElement('button'); btn.className = 'proc-btn'; btn.innerText = proc; btn.onclick = () => selectProc(i); btnGrid.appendChild(btn);
+        editData[i] = { name: proc, order: "", st: "", limit: "" };
+        if(!proc.includes("予備")){ const opt = document.createElement('option'); opt.value = proc; opt.innerText = proc; extraSelect.appendChild(opt); }
+      });
+    }
+    function selectProc(index) {
+      if (index < 0 || index >= master.processes.length) return; currentProcIdx = index;
+      const originalName = master.processes[index]; const isExtra = originalName.includes("予備");
+      document.getElementById('current-proc-display').innerText = originalName;
+      document.getElementById('extra-area').style.display = isExtra ? "flex" : "none";
+      document.querySelectorAll('.proc-btn').forEach(b => b.classList.remove('active')); document.getElementById('button-grid').children[index].classList.add('active');
+      if (isExtra) { document.getElementById('extra-proc-select').value = (editData[index].name === originalName) ? "" : editData[index].name; }
+      if (!isExtra || (isExtra && editData[index].name !== originalName)) { unlockInputs(index); } else { lockInputs(); }
+    }
+    function navProc(diff) { let next = currentProcIdx + diff; if (next >= 0 && next < master.processes.length) selectProc(next); }
+    function handleExtraSelect() {
+      const selectedName = document.getElementById('extra-proc-select').value;
+      if (selectedName) { editData[currentProcIdx].name = selectedName; document.getElementById(`h-p-${currentProcIdx}`).innerText = selectedName; unlockInputs(currentProcIdx); }
+    }
+    function checkDuplicate(inputEl) {
+      const val = inputEl.value; if (!val) return;
+      for (let key in editData) { if (parseInt(key) !== currentProcIdx && editData[key].order === val) { alert(`エラー：工程「${editData[key].name}」と指示順が重複しています！`); inputEl.value = ""; sync(); return; } }
+    }
+    function unlockInputs(idx) {
+      ['inp-order', 'inp-st', 'inp-limit'].forEach(id => { const el = document.getElementById(id); el.disabled = false; el.value = editData[idx][id.replace('inp-', '')]; });
+      document.getElementById('inp-order').focus();
+    }
+    function lockInputs() { ['inp-order', 'inp-st', 'inp-limit'].forEach(id => document.getElementById(id).disabled = true); }
+    function sync() {
+      if (currentProcIdx === -1) return; const o = document.getElementById('inp-order').value; const s = document.getElementById('inp-st').value; const l = document.getElementById('inp-limit').value;
+      editData[currentProcIdx].order = o; editData[currentProcIdx].st = s; editData[currentProcIdx].limit = l;
+      document.getElementById(`d-o-${currentProcIdx}`).innerText = o; document.getElementById(`d-s-${currentProcIdx}`).innerText = s; document.getElementById(`d-l-${currentProcIdx}`).innerText = l ? l.split('-').slice(1).join('/') : "";
+    }
+    function enterNext(e, nextId) { if (e.key === 'Enter') { e.preventDefault(); const nextEl = document.getElementById(nextId); if (nextEl) nextEl.focus(); } }
+    async function saveAndPrint() {
+      const orderNo = document.getElementById('display-order-no').innerText; const createDate = new Date().toISOString().split('T')[0];
+      let savePayload = []; Object.keys(editData).forEach(idx => { const d = editData[idx]; if (d.order || d.st || d.limit) savePayload.push([d.name, d.order, d.st, d.limit]); });
+      if (savePayload.length === 0) return alert("入力がありません");
+      const url = `${GAS_URL}?method=saveOnly&orderNo=${encodeURIComponent(orderNo)}&createDate=${createDate}&allData=${encodeURIComponent(JSON.stringify(savePayload))}`;
+      const res = await fetch(url); const result = await res.json(); if (result === "保存成功") window.print(); else alert(result);
+    }
+  </script>
+</body>
+</html>
