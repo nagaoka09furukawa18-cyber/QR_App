@@ -305,70 +305,42 @@
         document.getElementById('currentStation').innerText = `端末名: ${name}\n担当工程: ${config}`;
     }
 
-// --- 管理者設定：1. 入口 (関数がなかったので追加) ---
+// --- 管理者設定：入口 ---
     function authAdmin() {
-        document.getElementById('adminPwInput').value = ""; // 入力欄クリア
+        document.getElementById('adminPwInput').value = "";
+        document.getElementById('adminPwInput').type = "password";
+        if(document.getElementById('showPw')) document.getElementById('showPw').checked = false;
         showScreen('screenAuth');
     }
 
-    // --- 管理者設定：2. パスワード認証 ---
+    // --- パスワード表示切り替え ---
+    function togglePw() {
+        const pwInput = document.getElementById('adminPwInput');
+        pwInput.type = document.getElementById('showPw').checked ? "text" : "password";
+    }
+
+    // --- パスワード認証 ---
     async function checkPassword() {
         const input = document.getElementById('adminPwInput').value.trim();
         if(!input) return alert("パスワードを入力してください");
-
-        const btn = document.querySelector('#screenAuth button');
-        const originalText = btn.innerText;
-        btn.disabled = true;
-        btn.innerText = "認証中...";
-
+        const btn = document.querySelector('#screenAuth .btn-blue');
+        btn.disabled = true; btn.innerText = "認証中...";
         try {
             const resp = await fetch(`${GAS_URL}?action=getAdminPassword`);
             const res = await resp.json();
-            
             if (String(input) === String(res.password).trim()) {
-                loadConfigScreen(); // 成功：設定画面へ
+                loadConfigScreen();
             } else {
                 alert("パスワードが違います");
-                btn.disabled = false;
-                btn.innerText = originalText;
+                btn.disabled = false; btn.innerText = "ログイン";
             }
         } catch(e) {
-            alert("通信エラーが発生しました");
-            btn.disabled = false;
-            btn.innerText = originalText;
+            alert("通信エラー");
+            btn.disabled = false; btn.innerText = "ログイン";
         }
     }
 
-    // --- 管理者設定：3. 設定画面の構築 ---
-    function loadConfigScreen() {
-        showScreen('screenConfig');
-        document.getElementById('inputDeviceName').value = masters.device ? masters.device.name : "";
-        
-        const list = document.getElementById('configList');
-        list.innerHTML = "";
-        
-        const allProcs = masters.processes || [];
-        const currentConfig = (masters.device?.config || "").split(',').map(s=>s.trim());
-
-        allProcs.forEach(p => {
-            const b = document.createElement('button');
-            b.innerText = p;
-            b.style.margin = "3px";
-            
-            const isSelected = currentConfig.includes(p);
-            b.className = isSelected ? "btn-blue" : "btn-gray";
-            b.dataset.selected = isSelected ? "true" : "false";
-            
-            b.onclick = () => {
-                const sel = b.dataset.selected === "true";
-                b.className = sel ? "btn-gray" : "btn-blue";
-                b.dataset.selected = sel ? "false" : "true";
-            };
-            list.appendChild(b);
-        });
-    }
-
-    // --- 管理者設定：4. 保存処理 (デザイン統一・メッセージ変更版) ---
+    // --- 設定保存（デザインを同期中に合わせ、アラートを廃止） ---
     async function saveConfig() {
         const name = document.getElementById('inputDeviceName').value.trim();
         const sel = Array.from(document.querySelectorAll('#configList button'))
@@ -377,18 +349,15 @@
         
         if(!name || !sel) return alert("内容を確認してください");
 
-        // ★UI改善：初期同期と同じ「screenWait」を利用してデザインを統一
-        showScreen('screenWait');
+        // 待機画面のメッセージを書き換えて表示
         const waitMsg = document.querySelector('#screenWait p');
         if(waitMsg) waitMsg.innerText = "設定を保存して同期中...";
+        showScreen('screenWait');
 
         try {
             await fetch(`${GAS_URL}?action=saveDeviceConfig&deviceId=${deviceId}&deviceName=${encodeURIComponent(name)}&processList=${encodeURIComponent(sel)}`, {mode:'no-cors'});
-            
-            // アラートなしで0.8秒後に自動リロード
-            setTimeout(() => {
-                location.reload();
-            }, 800);
+            // 完了後、少し余韻を持たせてリロード
+            setTimeout(() => { location.reload(); }, 800);
         } catch(e) {
             alert("保存に失敗しました");
             showScreen('screenConfig');
