@@ -323,12 +323,38 @@
         } else { alert("NG"); }
     }
 
+// --- 管理者設定：保存処理（アラート廃止・メッセージ改善版） ---
     async function saveConfig() {
-        const name = document.getElementById('inputDeviceName').value;
+        const name = document.getElementById('inputDeviceName').value.trim();
         const sel = Array.from(document.getElementById('configList').querySelectorAll('.btn-blue')).map(b => b.innerText).join(',');
-        await fetch(`${GAS_URL}?action=saveDeviceConfig&deviceId=${deviceId}&deviceName=${encodeURIComponent(name)}&processList=${encodeURIComponent(sel)}`, {mode:'no-cors'});
-        alert("保存しました。再起動します。");
-        location.reload();
+        
+        if(!name || !sel) return alert("端末名と工程を両方入力・選択してください");
+
+        // ボタンエリアを「保存中」に書き換え（ユーザーへのフィードバック）
+        const configScreen = document.getElementById('screenConfig');
+        const originalContent = configScreen.innerHTML;
+        configScreen.innerHTML = `
+            <div style="margin-top:100px;">
+                <div class="loading-spinner"></div>
+                <h3 style="color:#28a745;">設定保存中...</h3>
+                <p>最新のマスタを同期しています</p>
+            </div>
+        `;
+        
+        try {
+            // サーバーへ送信（設定保存）
+            await fetch(`${GAS_URL}?action=saveDeviceConfig&deviceId=${deviceId}&deviceName=${encodeURIComponent(name)}&processList=${encodeURIComponent(sel)}`, {mode:'no-cors'});
+            
+            // アラートを廃止し、0.5秒だけ余韻を持たせてからリロード
+            // これにより「保存された感」を出しつつ、操作の手間を省きます
+            setTimeout(() => {
+                location.reload(); 
+            }, 500);
+
+        } catch(e) { 
+            alert("保存に失敗しました。通信環境を確認してください。");
+            configScreen.innerHTML = originalContent; // 失敗時は元の画面に戻す
+        }
     }
 
     window.onload = init;
