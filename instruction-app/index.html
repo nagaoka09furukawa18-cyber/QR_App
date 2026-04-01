@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+  <style>
+    /* CSSは以前のものをそのまま使えます */
+    body { font-family: sans-serif; padding: 20px; color: #333; margin-top: 50px; }
+    .header-area { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #dee2e6; }
+    #orderNo { font-size: 28px; padding: 5px 10px; width: 300px; font-weight: bold; border: 2px solid #007bff; border-radius: 4px; }
+    #qr-canvas { width: 200px !important; height: 200px !important; border: 1px solid #ccc; background: #fff; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th { background: #444; color: white; padding: 10px; border: 1px solid #ccc; }
+    td { border: 1px solid #ccc; height: 40px; }
+    input.data-input { width: 100%; height: 100%; border: none; padding: 0 8px; box-sizing: border-box; font-size: 16px; }
+    .save-btn { margin-top: 30px; padding: 15px 50px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 22px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div id="main-ui">
+    <h2>指示書入力 v4.1.0 (GitHub版)</h2>
+    <div class="header-area">
+      <div>
+        <label>手配No (入力でQR生成):</label><br>
+        <input type="text" id="orderNo" oninput="updateQR()" placeholder="例: BBB">
+        <div style="margin-top:15px;"><label>作成日:</label><br><input type="date" id="createDate" style="font-size: 18px;"></div>
+      </div>
+      <div id="qr-section">
+        <canvas id="qr-canvas"></canvas>
+        <div id="url-display"></div>
+      </div>
+    </div>
+    <div id="table-container">読み込み中...</div>
+    <button id="saveBtn" class="save-btn" onclick="processAll()" style="display:none;">指示書発行 (保存＆印刷)</button>
+  </div>
+
+  <script>
+    // ★ここにあなたのGASのWebアプリURLを貼り付けてください
+    const GAS_URL = "https://script.google.com/macros/s/ここにID/exec";
+
+    window.onload = () => {
+      document.getElementById('createDate').valueAsDate = new Date();
+      
+      // GASからマスターデータを取得
+      fetch(`${GAS_URL}?method=getMasters`)
+        .then(response => response.json())
+        .then(data => {
+          drawTable(data);
+          document.getElementById('saveBtn').style.display = 'block';
+        })
+        .catch(err => console.error("データ取得エラー:", err));
+    };
+
+    function updateQR() {
+      const orderNo = document.getElementById('orderNo').value;
+      const canvas = document.getElementById('qr-canvas');
+      if (!orderNo) return;
+      QRCode.toCanvas(canvas, orderNo, { width: 200, margin: 2 });
+    }
+
+    function drawTable(data) {
+      let html = '<table><thead><tr><th>工程</th>' + data.inputs.map(i => `<th>${i}</th>`).join('') + '</tr></thead><tbody>';
+      data.processes.forEach((proc, r) => {
+        html += `<tr><td style="background:#f2f2f2; font-weight:bold; text-align:center;">${proc}</td>` + 
+                data.inputs.map((_, c) => `<td><input type="text" class="data-input" data-row="${r}" data-col="${c}"></td>`).join('') + '</tr>';
+      });
+      document.getElementById('table-container').innerHTML = html + '</tbody></table>';
+    }
+
+    function processAll() {
+      // 保存処理のfetch（doPostまたはmethod付きdoGet）をここに実装します
+      alert("保存ロジックはGAS側のAPI準備ができ次第接続します！");
+      window.print();
+    }
+  </script>
+</body>
+</html>
