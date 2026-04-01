@@ -306,39 +306,51 @@
     }
 
 // --- 管理者設定：入口 ---
-    function authAdmin() {
-        document.getElementById('adminPwInput').value = "";
-        document.getElementById('adminPwInput').type = "password";
-        if(document.getElementById('showPw')) document.getElementById('showPw').checked = false;
-        showScreen('screenAuth');
-    }
+function authAdmin() {
+    const pwInput = document.getElementById('adminPwInput');
+    pwInput.value = "";
+    pwInput.type = "password";
+    const chk = document.getElementById('showPw');
+    if (chk) chk.checked = false;
+    showScreen('screenAuth');
+}
 
-    // --- パスワード表示切り替え ---
-    function togglePw() {
-        const pwInput = document.getElementById('adminPwInput');
-        pwInput.type = document.getElementById('showPw').checked ? "text" : "password";
-    }
+// --- パスワード表示切り替え ---
+function togglePw() {
+    const pwInput = document.getElementById('adminPwInput');
+    const chk = document.getElementById('showPw');
+    pwInput.type = chk.checked ? "text" : "password";
+}
 
-    // --- パスワード認証 ---
-    async function checkPassword() {
-        const input = document.getElementById('adminPwInput').value.trim();
-        if(!input) return alert("パスワードを入力してください");
-        const btn = document.getElementById('adminLoginBtn');
-        btn.disabled = true; btn.innerText = "認証中...";
-        try {
-            const resp = await fetch(`${GAS_URL}?action=getAdminPassword`);
-            const res = await resp.json();
-            if (String(input) === String(res.password).trim()) {
-                loadConfigScreen();
-            } else {
-                alert("パスワードが違います");
-                btn.disabled = false; btn.innerText = "ログイン";
-            }
-        } catch(e) {
-            alert("通信エラー");
-            btn.disabled = false; btn.innerText = "ログイン";
+// --- パスワード認証 ---
+async function checkPassword() {
+    const input = document.getElementById('adminPwInput').value.trim();
+    if (!input) return alert("パスワードを入力してください");
+
+    const btn = document.getElementById('adminLoginBtn');
+    const originalText = "ログイン";
+    
+    btn.disabled = true;
+    btn.innerText = "認証中...";
+
+    try {
+        const resp = await fetch(`${GAS_URL}?action=getAdminPassword`);
+        const res = await resp.json();
+
+        if (String(input) === String(res.password).trim()) {
+            loadConfigScreen();
+        } else {
+            alert("パスワードが違います");
+            btn.disabled = false;
+            btn.innerText = originalText;
         }
+    } catch (e) {
+        console.error(e);
+        alert("通信エラーが発生しました。GASの公開設定を確認してください。");
+        btn.disabled = false;
+        btn.innerText = originalText;
     }
+}
 
     // --- 設定保存（デザインを同期中に合わせ、アラートを廃止） ---
     async function saveConfig() {
