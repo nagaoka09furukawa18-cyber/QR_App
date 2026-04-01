@@ -302,25 +302,34 @@
         document.getElementById('currentStation').innerText = `端末名: ${name}\n担当工程: ${config}`;
     }
 
-    // 管理者設定・認証系（簡略化して維持）
-    function authAdmin() { showScreen('screenAuth'); }
+// --- 1. パスワード認証（安定化版） ---
     async function checkPassword() {
-        const pw = document.getElementById('adminPwInput').value;
-        const resp = await fetch(`${GAS_URL}?action=getAdminPassword`);
-        const res = await resp.json();
-        if (pw === res.password) {
-            showScreen('screenConfig');
-            document.getElementById('inputDeviceName').value = masters.device ? masters.device.name : "";
-            const list = document.getElementById('configList');
-            list.innerHTML = "";
-            masters.processes.forEach(p => {
-                const b = document.createElement('button');
-                b.innerText = p;
-                b.className = (masters.device?.config || "").includes(p) ? "btn-blue" : "btn-gray";
-                b.onclick = () => { b.className = b.className === "btn-blue" ? "btn-gray" : "btn-blue"; };
-                list.appendChild(b);
-            });
-        } else { alert("NG"); }
+        const input = document.getElementById('adminPwInput').value.trim();
+        if(!input) return;
+
+        // ボタンを無効化して連打防止
+        const btn = document.querySelector('#screenAuth button');
+        btn.disabled = true;
+        btn.innerText = "認証中...";
+
+        try {
+            const resp = await fetch(`${GAS_URL}?action=getAdminPassword`);
+            const res = await resp.json();
+            
+            // パスワードも空白除去して比較
+            if (String(input) === String(res.password).trim()) {
+                loadConfigScreen(); // 成功：設定画面へ
+            } else {
+                alert("パスワードが違います");
+                btn.disabled = false;
+                btn.innerText = "ログイン";
+            }
+        } catch(e) {
+            console.error(e);
+            alert("通信エラー：認証サーバーに接続できません");
+            btn.disabled = false;
+            btn.innerText = "ログイン";
+        }
     }
 
 // --- 管理者設定：保存処理（アラート廃止・メッセージ改善版） ---
