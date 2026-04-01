@@ -7,10 +7,7 @@
     body { font-family: "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 10px; background: #e9ecef; }
     
     /* モーダル */
-    #order-modal {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 1000;
-    }
+    #order-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; }
     .modal-content { background: white; padding: 50px; border-radius: 15px; text-align: center; }
     .modal-content input { font-size: 40px; padding: 10px; width: 400px; text-align: center; border: 3px solid #007bff; border-radius: 10px; }
 
@@ -18,46 +15,38 @@
     .top-bar { display: flex; align-items: center; background: #343a40; color: white; padding: 10px 20px; border-radius: 8px; margin-bottom: 10px; }
     #display-order-no { font-size: 24px; font-weight: bold; color: #ffc107; cursor: pointer; text-decoration: underline; margin-left: 15px; }
 
-    /* プレビュー（A4横・拡大版） */
-    #preview-container { 
-      background: white; padding: 20px; border: 1px solid #ccc; position: relative; margin-bottom: 15px;
-    }
-    .preview-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-    .huge-order-no { font-size: 48px; font-weight: bold; font-family: 'Courier New', Courier, monospace; }
+    /* プレビュー */
+    #preview-container { background: white; padding: 20px; border: 1px solid #ccc; margin-bottom: 15px; }
+    .preview-header { display: flex; align-items: center; gap: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+    .huge-order-no { font-size: 60px; font-weight: bold; font-family: 'Courier New', Courier, monospace; line-height: 1; }
     
-    table.preview-table { border-collapse: collapse; width: 100%; table-layout: fixed; margin-top: 10px; }
-    .preview-table th, .preview-table td { border: 1px solid #000; font-size: 11px; text-align: center; height: 30px; }
-    .preview-table th { background: #f2f2f2; height: 25px; }
-    #qr-area { width: 120px; height: 120px; }
+    table.preview-table { border-collapse: collapse; width: 100%; table-layout: fixed; margin-top: 15px; }
+    .preview-table th, .preview-table td { border: 1px solid #000; font-size: 11px; text-align: center; height: 35px; }
+    .preview-table th { background: #f2f2f2; }
+    #qr-area canvas { width: 100px !important; height: 100px !important; }
 
-    /* 工程選択ボタン（文字サイズ追従） */
-    #button-grid { 
-      display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px;
-    }
+    /* ボタンエリア */
+    #button-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; }
     .proc-btn { padding: 8px 12px; font-size: 14px; font-weight: bold; cursor: pointer; border: 1px solid #adb5bd; background: #fff; border-radius: 4px; }
-    .proc-btn.active { background: #007bff; color: white; border-color: #0056b3; }
+    .proc-btn.active { background: #007bff; color: white; }
 
-    /* 入力セクション */
-    .action-area { display: flex; gap: 20px; align-items: flex-end; }
-    #input-card { 
-      background: #fff; padding: 20px; border-radius: 8px; border: 2px solid #007bff; width: 300px;
-    }
-    .card-title { font-size: 24px; font-weight: bold; color: #007bff; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-    .vertical-inputs { display: flex; flex-direction: column; gap: 15px; }
-    .input-item { display: flex; align-items: center; justify-content: space-between; }
-    .input-item label { font-size: 14px; font-weight: bold; width: 80px; }
-    .input-item input { font-size: 20px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 160px; text-align: center; }
-    .input-item input:disabled { background: #f8f9fa; cursor: not-allowed; }
+    /* 下部アクションエリア */
+    .action-area { display: flex; justify-content: space-between; align-items: stretch; gap: 20px; }
+    #input-card { background: #fff; padding: 20px; border-radius: 8px; border: 2px solid #007bff; flex-grow: 1; max-width: 500px; }
+    .card-title { font-size: 24px; font-weight: bold; color: #007bff; margin-bottom: 10px; display: flex; align-items: center; gap: 15px; }
+    
+    .vertical-inputs { display: flex; flex-direction: column; gap: 12px; }
+    .input-item { display: flex; align-items: center; }
+    .input-item label { font-size: 14px; font-weight: bold; width: 100px; }
+    .input-item input, .input-item select { font-size: 20px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 200px; }
+    input:disabled, select:disabled { background: #f1f1f1; cursor: not-allowed; }
 
-    .save-btn { 
-      padding: 30px 50px; background: #28a745; color: #fff; border: none; border-radius: 8px; 
-      font-weight: bold; cursor: pointer; font-size: 22px; height: fit-content;
-    }
-    .save-btn:hover { background: #218838; }
+    .save-btn { padding: 0 60px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 24px; transition: 0.3s; }
+    .save-btn:hover { background: #218838; transform: scale(1.02); }
 
     @media print {
       .top-bar, #button-grid, .action-area, #order-modal { display: none !important; }
-      #preview-container { border: none; width: 100%; padding: 0; }
+      #preview-container { border: none; padding: 0; }
       @page { size: A4 landscape; margin: 10mm; }
     }
   </style>
@@ -67,22 +56,19 @@
   <div id="order-modal">
     <div class="modal-content">
       <h1 style="margin-top:0">手配Noを入力</h1>
-      <input type="text" id="modal-order-no" placeholder="Enterで確定" autofocus>
+      <input type="text" id="modal-order-no" autofocus>
     </div>
   </div>
 
   <div class="top-bar">
-    <strong>指示書 v5.2</strong>
+    <strong>指示書 v5.3</strong>
     <span id="display-order-no" onclick="showModal()">---</span>
     <div style="margin-left: auto;">作成日: <span id="disp-date"></span></div>
   </div>
 
   <div id="preview-container">
     <div class="preview-header">
-      <div>
-        <div style="font-size: 14px; color: #666;">手配No:</div>
-        <div id="huge-no-display" class="huge-order-no">--------</div>
-      </div>
+      <div id="huge-no-display" class="huge-order-no">--------</div>
       <div id="qr-area"><canvas id="qrcode"></canvas></div>
     </div>
     <table class="preview-table">
@@ -99,31 +85,35 @@
 
   <div class="action-area">
     <div id="input-card">
-      <div id="current-proc-display" class="card-title">工程未選択</div>
+      <div class="card-title">
+        <span id="current-proc-display">工程未選択</span>
+        <select id="extra-proc-select" style="display:none; font-size:16px;" onchange="handleExtraSelect()">
+          <option value="">-- 工程を選択 --</option>
+        </select>
+      </div>
       <div class="vertical-inputs">
         <div class="input-item">
           <label>指示順</label>
-          <input type="number" id="inp-order" disabled oninput="sync()">
+          <input type="number" id="inp-order" disabled onkeydown="enterNext(event, 'inp-st')" oninput="sync()">
         </div>
         <div class="input-item">
-          <label>ST</label>
-          <input type="number" id="inp-st" disabled oninput="sync()">
+          <label>標準時間</label>
+          <input type="number" id="inp-st" disabled onkeydown="enterNext(event, 'inp-limit')" oninput="sync()">
         </div>
         <div class="input-item">
           <label>納期</label>
-          <input type="date" id="inp-limit" disabled oninput="sync()">
+          <input type="date" id="inp-limit" disabled onkeydown="enterNext(event, 'save-focus')" oninput="sync()">
         </div>
       </div>
     </div>
-
-    <button class="save-btn" onclick="saveAndPrint()">保存 ＆ 指示書発行</button>
+    <button class="save-btn" id="save-focus" onclick="saveAndPrint()">保存 ＆ 指示書発行</button>
   </div>
 
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbyQ8KW8Z8bPXIu-piVjydNI-na8gBygz1UVCrvGjFRdpJ-NPoj2fk14bzkv62AY4r8T/exec";
     let master = { processes: [] };
     let editData = {};
-    let currentProc = "";
+    let currentProcIdx = -1;
 
     const modalInput = document.getElementById('modal-order-no');
     modalInput.addEventListener('keypress', (e) => {
@@ -132,7 +122,7 @@
         document.getElementById('display-order-no').innerText = val;
         document.getElementById('huge-no-display').innerText = val;
         document.getElementById('order-modal').style.display = 'none';
-        updateQR(val);
+        QRCode.toCanvas(document.getElementById('qrcode'), val, { width: 100, margin: 2 });
       }
     });
 
@@ -151,64 +141,104 @@
       const trS = document.getElementById('tr-st');
       const trL = document.getElementById('tr-limit');
       const btnGrid = document.getElementById('button-grid');
+      const extraSelect = document.getElementById('extra-proc-select');
 
       master.processes.forEach((proc, i) => {
-        thr.innerHTML += `<th>${proc}</th>`;
-        trO.innerHTML += `<td id="td-o-${i}"></td>`;
-        trS.innerHTML += `<td id="td-s-${i}"></td>`;
-        trL.innerHTML += `<td id="td-l-${i}"></td>`;
+        thr.innerHTML += `<th id="h-p-${i}">${proc}</th>`;
+        trO.innerHTML += `<td id="d-o-${i}"></td>`;
+        trS.innerHTML += `<td id="d-s-${i}"></td>`;
+        trL.innerHTML += `<td id="d-l-${i}"></td>`;
 
         const btn = document.createElement('button');
         btn.className = 'proc-btn';
         btn.innerText = proc;
         btn.onclick = () => selectProc(proc, i);
         btnGrid.appendChild(btn);
-        editData[proc] = { order: "", st: "", limit: "" };
+        
+        editData[i] = { name: proc, order: "", st: "", limit: "" };
+        
+        // 予備用のプルダウン選択肢
+        const opt = document.createElement('option');
+        opt.value = proc; opt.innerText = proc;
+        extraSelect.appendChild(opt);
       });
     }
 
-    function selectProc(proc, index) {
-      currentProc = proc;
-      document.getElementById('current-proc-display').innerText = proc;
+    function selectProc(name, index) {
+      currentProcIdx = index;
+      const isExtra = name.includes("予備");
+      document.getElementById('current-proc-display').innerText = isExtra ? "予備：" : name;
+      document.getElementById('extra-proc-select').style.display = isExtra ? "inline-block" : "none";
+      
       document.querySelectorAll('.proc-btn').forEach(b => b.classList.remove('active'));
       document.getElementById('button-grid').children[index].classList.add('active');
 
-      // 入力解除
+      if (!isExtra) {
+        unlockInputs(index);
+      } else {
+        lockInputs();
+        document.getElementById('extra-proc-select').focus();
+      }
+    }
+
+    function handleExtraSelect() {
+      const selectedName = document.getElementById('extra-proc-select').value;
+      if (selectedName) {
+        editData[currentProcIdx].name = selectedName;
+        document.getElementById(`h-p-${currentProcIdx}`).innerText = selectedName;
+        unlockInputs(currentProcIdx);
+      }
+    }
+
+    function unlockInputs(idx) {
       const inps = ['inp-order', 'inp-st', 'inp-limit'];
       inps.forEach(id => {
         const el = document.getElementById(id);
         el.disabled = false;
-        el.value = editData[proc][id.replace('inp-', '')];
+        el.value = editData[idx][id.replace('inp-', '')];
       });
       document.getElementById('inp-order').focus();
     }
 
+    function lockInputs() {
+      ['inp-order', 'inp-st', 'inp-limit'].forEach(id => document.getElementById(id).disabled = true);
+    }
+
     function sync() {
-      if (!currentProc) return;
+      if (currentProcIdx === -1) return;
       const o = document.getElementById('inp-order').value;
       const s = document.getElementById('inp-st').value;
       const l = document.getElementById('inp-limit').value;
-      editData[currentProc] = { order: o, st: s, limit: l };
+      
+      editData[currentProcIdx].order = o;
+      editData[currentProcIdx].st = s;
+      editData[currentProcIdx].limit = l;
 
-      const idx = master.processes.indexOf(currentProc);
-      document.getElementById(`td-o-${idx}`).innerText = o;
-      document.getElementById(`td-s-${idx}`).innerText = s;
-      document.getElementById(`td-l-${idx}`).innerText = l ? l.split('-').slice(1).join('/') : "";
+      document.getElementById(`d-o-${currentProcIdx}`).innerText = o;
+      document.getElementById(`d-s-${currentProcIdx}`).innerText = s;
+      document.getElementById(`d-l-${currentProcIdx}`).innerText = l ? l.split('-').slice(1).join('/') : "";
     }
 
-    function updateQR(text) {
-      QRCode.toCanvas(document.getElementById('qrcode'), text, { width: 110, margin: 2 });
+    function enterNext(e, nextId) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const nextEl = document.getElementById(nextId);
+        if (nextEl) nextEl.focus();
+      }
     }
 
     async function saveAndPrint() {
       const orderNo = document.getElementById('display-order-no').innerText;
       const createDate = new Date().toISOString().split('T')[0];
       let savePayload = [];
-      master.processes.forEach(p => {
-        if (editData[p].order || editData[p].st || editData[p].limit) {
-          savePayload.push([p, editData[p].order, editData[p].st, editData[p].limit]);
+      
+      Object.keys(editData).forEach(idx => {
+        const d = editData[idx];
+        if (d.order || d.st || d.limit) {
+          savePayload.push([d.name, d.order, d.st, d.limit]);
         }
       });
+
       if (savePayload.length === 0) return alert("入力がありません");
 
       const url = `${GAS_URL}?method=saveOnly&orderNo=${encodeURIComponent(orderNo)}&createDate=${createDate}&allData=${encodeURIComponent(JSON.stringify(savePayload))}`;
