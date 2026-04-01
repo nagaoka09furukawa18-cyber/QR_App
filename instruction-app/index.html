@@ -67,11 +67,29 @@
       document.getElementById('table-container').innerHTML = html + '</tbody></table>';
     }
 
-    function processAll() {
-      // 保存処理のfetch（doPostまたはmethod付きdoGet）をここに実装します
-      alert("保存ロジックはGAS側のAPI準備ができ次第接続します！");
-      window.print();
+// processAll（HTML側）でデータを送る際、工程名も一緒に送るようにします
+function processAll() {
+  const rows = document.querySelectorAll('tbody tr');
+  let allData = [];
+  
+  rows.forEach((row, i) => {
+    let rowValues = {};
+    // 工程名の取得（通常テキストか、プルダウンか）
+    let select = row.querySelector('.proc-select');
+    rowValues.procName = select ? select.value : row.cells[0].innerText;
+    
+    // 入力値の取得 [指示順, ST, 納期]
+    rowValues.inputs = Array.from(row.querySelectorAll('.data-input')).map(input => input.value);
+    
+    // 工程名が選択されている、または入力がある場合のみ追加
+    if (rowValues.procName && (rowValues.inputs[0] || rowValues.inputs[1] || rowValues.inputs[2])) {
+      allData.push(rowValues);
     }
+  });
+
+  // GASへ送信
+  // ... fetch処理 ...
+}
   </script>
 </body>
 </html>
