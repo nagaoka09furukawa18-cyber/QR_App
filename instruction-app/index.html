@@ -58,14 +58,44 @@
       QRCode.toCanvas(canvas, orderNo, { width: 200, margin: 2 });
     }
 
-    function drawTable(data) {
-      let html = '<table><thead><tr><th>工程</th>' + data.inputs.map(i => `<th>${i}</th>`).join('') + '</tr></thead><tbody>';
-      data.processes.forEach((proc, r) => {
-        html += `<tr><td style="background:#f2f2f2; font-weight:bold; text-align:center;">${proc}</td>` + 
-                data.inputs.map((_, c) => `<td><input type="text" class="data-input" data-row="${r}" data-col="${c}"></td>`).join('') + '</tr>';
-      });
-      document.getElementById('table-container').innerHTML = html + '</tbody></table>';
+function drawTable(data) {
+  let html = '<table><thead><tr><th>工程</th>';
+  html += data.inputs.map(i => `<th>${i}</th>`).join('') + '</tr></thead><tbody>';
+
+  data.processes.forEach((proc, r) => {
+    html += '<tr>';
+    
+    // --- 工程名セルの制御 ---
+    if (proc === "予備") {
+      // 「予備」行の場合は、プルダウンを作成
+      let options = data.processes
+        .filter(p => p !== "予備") // 選択肢から「予備」を除外
+        .map(p => `<option value="${p}">${p}</option>`).join('');
+      
+      html += `<td class="proc-name">
+                <select class="proc-select" data-row="${r}">
+                  <option value="">(選択)</option>
+                  ${options}
+                </select>
+               </td>`;
+    } else {
+      // 通常の工程はそのまま表示
+      html += `<td class="proc-name" data-proc="${proc}">${proc}</td>`;
     }
+
+    // --- 入力項目の制御（指示順、ST、納期） ---
+    data.inputs.forEach((inputName, c) => {
+      let type = "text";
+      if (inputName === "指示順" || inputName === "ST") type = "number";
+      else if (inputName === "納期") type = "date";
+
+      html += `<td><input type="${type}" class="data-input" data-row="${r}" data-col="${c}"></td>`;
+    });
+    html += '</tr>';
+  });
+  
+  document.getElementById('table-container').innerHTML = html + '</tbody></table>';
+}
 
 // processAll（HTML側）でデータを送る際、工程名も一緒に送るようにします
 function processAll() {
