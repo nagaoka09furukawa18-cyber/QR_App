@@ -61,12 +61,12 @@
 </head>
 <body>
 
-  <div id="order-modal">
-    <div class="modal-content">
-      <h1 style="margin-top:0">手配Noを入力</h1>
-      <input type="text" id="modal-order-no" autofocus>
-    </div>
-  </div>
+<div class="top-bar">
+  <strong>指示書 v6.1</strong>
+  <span id="display-order-no" onclick="showModal()">---</span>
+  <button id="archive-btn" onclick="runArchive()" style="margin-left: 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 5px 10px;">完了案件を整理</button>
+  <div style="margin-left: auto;">作成日: <span id="disp-date"></span></div>
+</div>
 
   <div class="top-bar">
     <strong>指示書 v5.9</strong>
