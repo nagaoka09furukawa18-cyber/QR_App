@@ -36,6 +36,19 @@
     .input-item label { font-size: 14px; font-weight: bold; width: 80px; flex-shrink: 0; }
     .input-item input, .input-item select { font-size: 18px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 200px; }
     
+    /* 納期（カレンダー）のカスタマイズ */
+    #inp-limit {
+      position: relative;
+      padding-left: 40px; /* アイコンを左に置くためのスペース */
+      width: 160px;
+    }
+    /* Chrome/Edge/Safari用: カレンダーアイコンを左端に強制移動 */
+    #inp-limit::-webkit-calendar-picker-indicator {
+      position: absolute;
+      left: 8px;
+      cursor: pointer;
+    }
+
     #extra-proc-select { border: 2px solid #ffc107; width: 240px; }
     .save-btn { padding: 20px 40px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 20px; }
     
@@ -56,7 +69,7 @@
   </div>
 
   <div class="top-bar">
-    <strong>指示書 v5.8</strong>
+    <strong>指示書 v5.9</strong>
     <span id="display-order-no" onclick="showModal()">---</span>
     <div style="margin-left: auto;">作成日: <span id="disp-date"></span></div>
   </div>
@@ -101,7 +114,10 @@
         </div>
         <div class="input-item">
           <label>納期</label>
-          <input type="date" id="inp-limit" disabled onkeydown="enterNext(event, 'next-btn-focus')" oninput="sync()">
+          <input type="date" id="inp-limit" disabled 
+                 onclick="this.showPicker()" 
+                 onkeydown="enterNext(event, 'next-btn-focus')" 
+                 oninput="sync()">
         </div>
       </div>
     </div>
@@ -111,7 +127,7 @@
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbyQ8KW8Z8bPXIu-piVjydNI-na8gBygz1UVCrvGjFRdpJ-NPoj2fk14bzkv62AY4r8T/exec";
     let master = { processes: [] };
-    let editData = {}; // 内部保持データ
+    let editData = {}; 
     let currentProcIdx = -1;
 
     document.getElementById('modal-order-no').addEventListener('keypress', function(e) {
@@ -156,7 +172,7 @@
         btn.onclick = () => selectProc(i);
         btnGrid.appendChild(btn);
         
-        // データを初期化（各工程インデックスごとに完全に独立させる）
+        // 完全に独立したデータ構造で初期化
         editData[i] = { name: proc, order: "", st: "", limit: "" };
         
         if(!proc.includes("予備")){
@@ -180,28 +196,35 @@
       document.querySelectorAll('.proc-btn').forEach(b => b.classList.remove('active'));
       document.getElementById('button-grid').children[index].classList.add('active');
 
-      // 入力欄を一旦クリアしてからデータを流し込む
-      clearInputs();
+      // 重要：他の工程のデータが残らないよう、表示を一旦クリアして現在のデータをセット
+      const data = editData[index];
+      document.getElementById('inp-order').value = data.order;
+      document.getElementById('inp-st').value = data.st;
+      document.getElementById('inp-limit').value = data.limit;
 
       if (isExtra) {
-        // 予備の場合：すでに設定されている名前をセット。無ければ未選択状態へ。
-        const savedName = editData[index].name;
+        // 予備の場合、選択されている工程名をプルダウンに反映
+        const savedName = data.name;
         document.getElementById('extra-proc-select').value = (savedName === originalName) ? "" : savedName;
         
         if (savedName !== originalName && savedName !== "") {
-          unlockInputs(index);
+          unlockInputs();
         } else {
           lockInputs();
           document.getElementById('extra-proc-select').focus();
         }
       } else {
-        unlockInputs(index);
+        unlockInputs();
       }
     }
 
-    function navProc(diff) {
-      let next = currentProcIdx + diff;
-      if (next >= 0 && next < master.processes.length) selectProc(next);
+    function unlockInputs() {
+      ['inp-order', 'inp-st', 'inp-limit'].forEach(id => document.getElementById(id).disabled = false);
+      document.getElementById('inp-order').focus();
+    }
+
+    function lockInputs() {
+      ['inp-order', 'inp-st', 'inp-limit'].forEach(id => document.getElementById(id).disabled = true);
     }
 
     function handleExtraSelect() {
@@ -209,28 +232,8 @@
       if (selectedName) {
         editData[currentProcIdx].name = selectedName;
         document.getElementById(`h-p-${currentProcIdx}`).innerText = selectedName;
-        unlockInputs(currentProcIdx);
+        unlockInputs();
       }
-    }
-
-    function clearInputs() {
-      ['inp-order', 'inp-st', 'inp-limit'].forEach(id => {
-        document.getElementById(id).value = "";
-      });
-    }
-
-    function unlockInputs(idx) {
-      ['inp-order', 'inp-st', 'inp-limit'].forEach(id => {
-        const el = document.getElementById(id);
-        el.disabled = false;
-        const key = id.replace('inp-', '');
-        el.value = editData[idx][key];
-      });
-      document.getElementById('inp-order').focus();
-    }
-
-    function lockInputs() {
-      ['inp-order', 'inp-st', 'inp-limit'].forEach(id => document.getElementById(id).disabled = true);
     }
 
     function sync() {
@@ -259,6 +262,11 @@
           return;
         }
       }
+    }
+
+    function navProc(diff) {
+      let next = currentProcIdx + diff;
+      if (next >= 0 && next < master.processes.length) selectProc(next);
     }
 
     function enterNext(e, nextId) {
