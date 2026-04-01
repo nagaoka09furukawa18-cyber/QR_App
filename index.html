@@ -302,13 +302,19 @@
         document.getElementById('currentStation').innerText = `端末名: ${name}\n担当工程: ${config}`;
     }
 
-// --- 1. パスワード認証（安定化版） ---
+// --- 管理者設定：1. 入口 (関数がなかったので追加) ---
+    function authAdmin() {
+        document.getElementById('adminPwInput').value = ""; // 入力欄クリア
+        showScreen('screenAuth');
+    }
+
+    // --- 管理者設定：2. パスワード認証 ---
     async function checkPassword() {
         const input = document.getElementById('adminPwInput').value.trim();
-        if(!input) return;
+        if(!input) return alert("パスワードを入力してください");
 
-        // ボタンを無効化して連打防止
         const btn = document.querySelector('#screenAuth button');
+        const originalText = btn.innerText;
         btn.disabled = true;
         btn.innerText = "認証中...";
 
@@ -316,22 +322,21 @@
             const resp = await fetch(`${GAS_URL}?action=getAdminPassword`);
             const res = await resp.json();
             
-            // パスワードも空白除去して比較
             if (String(input) === String(res.password).trim()) {
                 loadConfigScreen(); // 成功：設定画面へ
             } else {
                 alert("パスワードが違います");
                 btn.disabled = false;
-                btn.innerText = "ログイン";
+                btn.innerText = originalText;
             }
         } catch(e) {
-            console.error(e);
-            alert("通信エラー：認証サーバーに接続できません");
+            alert("通信エラーが発生しました");
             btn.disabled = false;
-            btn.innerText = "ログイン";
+            btn.innerText = originalText;
         }
     }
-// --- 2. 設定画面の読み込み（デザイン統一） ---
+
+    // --- 管理者設定：3. 設定画面の構築 ---
     function loadConfigScreen() {
         showScreen('screenConfig');
         document.getElementById('inputDeviceName').value = masters.device ? masters.device.name : "";
@@ -339,13 +344,15 @@
         const list = document.getElementById('configList');
         list.innerHTML = "";
         
-        // 工程リストの構築
-        masters.processes.forEach(p => {
+        const allProcs = masters.processes || [];
+        const currentConfig = (masters.device?.config || "").split(',').map(s=>s.trim());
+
+        allProcs.forEach(p => {
             const b = document.createElement('button');
             b.innerText = p;
             b.style.margin = "3px";
-            // 現在の担当工程に含まれているかチェック
-            const isSelected = (masters.device?.config || "").split(',').map(s=>s.trim()).includes(p);
+            
+            const isSelected = currentConfig.includes(p);
             b.className = isSelected ? "btn-blue" : "btn-gray";
             b.dataset.selected = isSelected ? "true" : "false";
             
@@ -357,37 +364,31 @@
             list.appendChild(b);
         });
     }
-// --- 管理者設定：保存処理（アラート廃止・メッセージ改善版） ---
+
+    // --- 管理者設定：4. 保存処理 (デザイン統一・メッセージ変更版) ---
     async function saveConfig() {
         const name = document.getElementById('inputDeviceName').value.trim();
-        const sel = Array.from(document.getElementById('configList').querySelectorAll('.btn-blue')).map(b => b.innerText).join(',');
+        const sel = Array.from(document.querySelectorAll('#configList button'))
+                         .filter(b => b.dataset.selected === "true")
+                         .map(b => b.innerText).join(',');
         
-        if(!name || !sel) return alert("端末名と工程を両方入力・選択してください");
+        if(!name || !sel) return alert("内容を確認してください");
 
-        // ボタンエリアを「保存中」に書き換え（ユーザーへのフィードバック）
-        const configScreen = document.getElementById('screenConfig');
-        const originalContent = configScreen.innerHTML;
-        configScreen.innerHTML = `
-            <div style="margin-top:100px;">
-                <div class="loading-spinner"></div>
-                <h3 style="color:#28a745;">設定保存中...</h3>
-                <p>最新のマスタを同期しています</p>
-            </div>
-        `;
-        
+        // ★UI改善：初期同期と同じ「screenWait」を利用してデザインを統一
+        showScreen('screenWait');
+        const waitMsg = document.querySelector('#screenWait p');
+        if(waitMsg) waitMsg.innerText = "設定を保存して同期中...";
+
         try {
-            // サーバーへ送信（設定保存）
             await fetch(`${GAS_URL}?action=saveDeviceConfig&deviceId=${deviceId}&deviceName=${encodeURIComponent(name)}&processList=${encodeURIComponent(sel)}`, {mode:'no-cors'});
             
-            // アラートを廃止し、0.5秒だけ余韻を持たせてからリロード
-            // これにより「保存された感」を出しつつ、操作の手間を省きます
+            // アラートなしで0.8秒後に自動リロード
             setTimeout(() => {
-                location.reload(); 
-            }, 500);
-
-        } catch(e) { 
-            alert("保存に失敗しました。通信環境を確認してください。");
-            configScreen.innerHTML = originalContent; // 失敗時は元の画面に戻す
+                location.reload();
+            }, 800);
+        } catch(e) {
+            alert("保存に失敗しました");
+            showScreen('screenConfig');
         }
     }
 
