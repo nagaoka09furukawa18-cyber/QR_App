@@ -61,12 +61,15 @@
         <button class="btn-gray" onclick="resetToMain()" style="margin-top:30px; font-size:12px;">最初からやり直す</button>
     </div>
 
-    <div id="screenAuth" class="screen">
-        <h3>管理者認証</h3>
-        <input type="password" id="adminPwInput" placeholder="パスワードを入力">
-        <button class="btn-blue" onclick="checkPassword()">ログイン</button>
-        <button class="btn-gray" onclick="resetToMain()">戻る</button>
+<div id="screenAuth" class="screen">
+    <h3>管理者認証</h3>
+    <input type="password" id="adminPwInput" placeholder="パスワードを入力">
+    <div style="text-align: right; font-size: 13px; margin-bottom: 10px; color: #666;">
+        <input type="checkbox" id="showPw" onclick="togglePw()"> パスワードを表示
     </div>
+    <button class="btn-blue btn-main" onclick="checkPassword()">ログイン</button>
+    <button class="btn-gray" onclick="resetToMain()">戻る</button>
+</div>
 
     <div id="screenConfig" class="screen">
         <h3>端末詳細設定</h3>
