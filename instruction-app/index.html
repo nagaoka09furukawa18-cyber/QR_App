@@ -4,12 +4,12 @@
 <base target="_top">
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 <style>
-/* 8:20時点のスタイルを完全継承 */
 body { font-family: "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 10px; background: #e9ecef; }
 .top-bar { display: flex; align-items: center; background: #343a40; color: white; padding: 10px 20px; border-radius: 8px; margin-bottom: 10px; }
 #display-order-no { font-size: 22px; font-weight: bold; color: #ffc107; cursor: pointer; text-decoration: underline; margin-left: 15px; }
 
-#preview-container { background: white; padding: 20px; border: 1px solid #ccc; margin-bottom: 15px; }
+/* プレビュー：画面幅いっぱい(100%)を使用 */
+#preview-container { background: white; padding: 20px; border: 1px solid #ccc; margin-bottom: 15px; width: calc(100% - 42px); }
 .preview-header { display: flex; align-items: center; gap: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
 .order-no-title { font-size: 30px; font-weight: bold; }
 
@@ -18,23 +18,24 @@ table.preview-table { border-collapse: collapse; width: 100%; table-layout: fixe
 .preview-table th { background: #f2f2f2; font-size: 9px; }
 #qr-area canvas { width: 85px !important; height: 85px !important; }
 
+/* 工程ボタン：プレビューのすぐ下 */
 #button-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; }
 .proc-btn { padding: 8px 12px; font-size: 14px; font-weight: bold; cursor: pointer; border: 1px solid #adb5bd; background: #fff; border-radius: 4px; }
 .proc-btn.active { background: #007bff; color: white; border-color: #0056b3; }
 
-/* 下部エリアのレイアウト：リストと入力を横並びに */
-.bottom-management-area { display: flex; gap: 20px; align-items: flex-start; }
+/* 下部管理エリア：ここを横並びにする */
+.bottom-management-area { display: flex; gap: 20px; margin-top: 10px; align-items: flex-start; }
 
-/* 左側：保存済みリスト（プレビューの下に配置） */
-#side-list-panel { width: 350px; background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; display: flex; flex-direction: column; height: 400px; }
-#order-list-container { flex-grow: 1; overflow-y: auto; border: 1px solid #eee; margin-top: 10px; background: #fafafa; }
+/* 左：保存済みリスト（プレビューより下に配置し、プレビューを邪魔しない） */
+#side-list-panel { width: 300px; background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; flex-shrink: 0; }
+#order-list-container { max-height: 300px; overflow-y: auto; border: 1px solid #eee; margin-top: 10px; background: #fafafa; }
 .list-item { display: flex; align-items: center; padding: 8px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 13px; }
 .list-item:hover { background: #f0f7ff; }
 .status-badge { font-size: 10px; padding: 2px 5px; border-radius: 4px; margin-left: auto; font-weight: bold; }
 .status-unprinted { background: #ffeb3b; color: #856404; }
 .status-printed { background: #e0e0e0; color: #666; }
 
-/* 右側：入力カード */
+/* 右：入力・アクション */
 .action-area { flex-grow: 1; display: flex; flex-direction: column; gap: 15px; }
 #input-card { background: #fff; padding: 20px; border-radius: 8px; border: 2px solid #007bff; }
 .card-header { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
@@ -47,21 +48,20 @@ table.preview-table { border-collapse: collapse; width: 100%; table-layout: fixe
 .input-item input, .input-item select { font-size: 18px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 140px; }
 
 #inp-limit { position: relative; padding-left: 40px; }
-#inp-limit::-webkit-calendar-picker-indicator { position: absolute; left: 8px; }
+#inp-limit::-webkit-calendar-picker-indicator { position: absolute; left: 8px; cursor: pointer; }
 
 .save-btn-group { display: flex; gap: 15px; justify-content: flex-end; }
 .btn-save-only { padding: 15px 25px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
 .btn-save-print { padding: 15px 40px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 20px; }
 
-/* モーダル */
-#order-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+#order-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 1000; }
 .modal-content { background: white; padding: 50px; border-radius: 15px; text-align: center; }
 .modal-content input { font-size: 32px; padding: 10px; width: 350px; text-align: center; border: 3px solid #007bff; border-radius: 10px; }
 
 @media print {
   .top-bar, #button-grid, .bottom-management-area, #order-modal, .nav-btn { display: none !important; }
-  #preview-container { border: none; padding: 0; width: 100%; }
-  body { background: white; }
+  #preview-container { border: none; padding: 0; width: 100%; margin: 0; }
+  body { background: white; padding: 0; }
   @page { size: A4 landscape; margin: 10mm; }
 }
 </style>
@@ -108,7 +108,7 @@ table.preview-table { border-collapse: collapse; width: 100%; table-layout: fixe
     </div>
     <input type="text" id="list-search" placeholder="手配No検索..." oninput="filterList()" style="width:100%; padding:5px; margin-top:5px; box-sizing:border-box;">
     <div id="order-list-container">読込中...</div>
-    <button onclick="printSelected()" style="margin-top:10px; padding:8px; background:#28a745; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px;">選択した指示書を一括発行</button>
+    <button onclick="printSelected()" style="margin-top:10px; padding:8px; width:100%; background:#28a745; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px;">選択した指示書を一括発行</button>
   </div>
 
   <div class="action-area">
@@ -138,7 +138,7 @@ table.preview-table { border-collapse: collapse; width: 100%; table-layout: fixe
       </div>
     </div>
     <div class="save-btn-group">
-      <button class="btn-save-only" onclick="saveData('未発行')">保存のみ</button>
+      <button class="btn-save-only" onclick="saveData('未発行')">保存のみ（あとで印刷）</button>
       <button class="btn-save-print" id="save-focus" onclick="saveAndPrint()">保存 ＆ 指示書発行</button>
     </div>
   </div>
@@ -146,13 +146,12 @@ table.preview-table { border-collapse: collapse; width: 100%; table-layout: fixe
 </div>
 
 <script>
-// --- 基本設定と変数 ---
+/* JavaScript部分は前回のロジック（リスト取得、復元、保存、アーカイブ）をそのまま維持 */
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyQ8KW8Z8bPXIu-piVjydNI-na8gBygz1UVCrvGjFRdpJ-NPoj2fk14bzkv62AY4r8T/exec";
 let master = { processes: [] };
 let editData = {};
 let currentProcIdx = -1;
 
-// --- 初期化 ---
 window.onload = async () => {
   document.getElementById('disp-date').innerText = new Date().toLocaleDateString();
   const res = await fetch(`${GAS_URL}?method=getMasters`);
@@ -189,7 +188,6 @@ function initUI() {
   });
 }
 
-// --- リスト・検索・復元機能 ---
 async function refreshOrderList() {
   const container = document.getElementById('order-list-container');
   const unprintedOnly = document.getElementById('unprinted-only').checked;
@@ -209,7 +207,7 @@ async function refreshOrderList() {
       `;
       container.appendChild(row);
     });
-  } catch (e) { container.innerHTML = "エラー"; }
+  } catch (e) { container.innerHTML = "読込エラー"; }
 }
 
 function filterList() {
@@ -252,7 +250,6 @@ async function loadByList(no) {
   }
 }
 
-// --- 操作ロジック ---
 function selectProc(index) {
   currentProcIdx = index;
   const originalName = master.processes[index];
@@ -284,7 +281,6 @@ function sync() {
   document.getElementById(`d-l-${currentProcIdx}`).innerText = l ? l.split('-').slice(1).join('/') : "";
 }
 
-// --- 保存・アーカイブ ---
 async function saveData(status) {
   const orderNo = document.getElementById('display-order-no').innerText;
   if (orderNo === "---") return alert("手配Noを指定してください");
@@ -309,7 +305,6 @@ async function runArchive() {
   google.script.run.withSuccessHandler(res => { alert(res); location.reload(); }).checkAndArchiveCompletedOrders();
 }
 
-// --- モーダル・ナビゲーション ---
 document.getElementById('modal-order-no').addEventListener('keypress', function(e) {
   if (e.key === 'Enter') {
     const val = this.value.trim();
