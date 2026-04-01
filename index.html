@@ -331,7 +331,32 @@
             btn.innerText = "ログイン";
         }
     }
-
+// --- 2. 設定画面の読み込み（デザイン統一） ---
+    function loadConfigScreen() {
+        showScreen('screenConfig');
+        document.getElementById('inputDeviceName').value = masters.device ? masters.device.name : "";
+        
+        const list = document.getElementById('configList');
+        list.innerHTML = "";
+        
+        // 工程リストの構築
+        masters.processes.forEach(p => {
+            const b = document.createElement('button');
+            b.innerText = p;
+            b.style.margin = "3px";
+            // 現在の担当工程に含まれているかチェック
+            const isSelected = (masters.device?.config || "").split(',').map(s=>s.trim()).includes(p);
+            b.className = isSelected ? "btn-blue" : "btn-gray";
+            b.dataset.selected = isSelected ? "true" : "false";
+            
+            b.onclick = () => {
+                const sel = b.dataset.selected === "true";
+                b.className = sel ? "btn-gray" : "btn-blue";
+                b.dataset.selected = sel ? "false" : "true";
+            };
+            list.appendChild(b);
+        });
+    }
 // --- 管理者設定：保存処理（アラート廃止・メッセージ改善版） ---
     async function saveConfig() {
         const name = document.getElementById('inputDeviceName').value.trim();
