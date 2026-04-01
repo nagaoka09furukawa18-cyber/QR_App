@@ -61,15 +61,15 @@
         <button class="btn-gray" onclick="resetToMain()" style="margin-top:30px; font-size:12px;">最初からやり直す</button>
     </div>
 
-<div id="screenAuth" class="screen">
-    <h3>管理者認証</h3>
-    <input type="password" id="adminPwInput" placeholder="パスワードを入力">
-    <div style="text-align: right; font-size: 13px; margin-bottom: 10px; color: #666;">
-        <input type="checkbox" id="showPw" onclick="togglePw()"> パスワードを表示
+    <div id="screenAuth" class="screen">
+        <h3>管理者認証</h3>
+        <input type="password" id="adminPwInput" placeholder="パスワードを入力">
+        <div style="text-align: right; font-size: 13px; margin-bottom: 10px; color: #666;">
+            <input type="checkbox" id="showPw" onclick="togglePw()"> パスワードを表示
+        </div>
+        <button id="adminLoginBtn" class="btn-blue btn-main" onclick="checkPassword()">ログイン</button>
+        <button class="btn-gray" onclick="resetToMain()">戻る</button>
     </div>
-    <button id="adminLoginBtn" class="btn-blue btn-main" onclick="checkPassword()">ログイン</button>
-    <button class="btn-gray" onclick="resetToMain()">戻る</button>
-</div>
 
     <div id="screenConfig" class="screen">
         <h3>端末詳細設定</h3>
@@ -87,12 +87,11 @@
     let deviceId = localStorage.getItem('deviceId') || 'ID-' + Math.random().toString(36).substring(2, 8).toUpperCase();
     localStorage.setItem('deviceId', deviceId);
 
-    // --- 1. 初期化 ---
     async function init() {
         showScreen('screenWait');
         document.getElementById('displayId').innerText = "端末ID: " + deviceId;
         try {
-            const resp = await fetch(`${GAS_URL}?action=getAllMasters&deviceId=${deviceId}`);
+            const resp = await fetch(GAS_URL + "?action=getAllMasters&deviceId=" + deviceId);
             masters = await resp.json();
             if (masters.device) {
                 updateStationDisplay(masters.device.name, masters.device.config);
@@ -102,39 +101,25 @@
         showScreen('screenMain');
     }
 
-    // --- 2. スキャン成功時の自動振分け ---
     function onScanSuccess(no) {
         const scanNo = String(no).trim();
         state = { tehai: scanNo, proc: '', staff: '', mac: '', targetRow: -1, isEndMode: false };
         document.getElementById('tehaiDisplay').innerHTML = `手配No：<span>${scanNo}</span>`;
-        
-        // 作業中リストから検索
         const work = (masters.activeWorks || []).find(w => String(w.tehai).trim() === scanNo);
-
         showScreen('screenDetail');
-
         if (work) {
-            // 【完了モード】
-            state.isEndMode = true;
-            state.proc = work.proc;
-            state.staff = work.staff;
-            state.mac = work.mac;
-            state.targetRow = work.row;
+            state.isEndMode = true; state.proc = work.proc; state.staff = work.staff; state.mac = work.mac; state.targetRow = work.row;
             renderEndUI();
         } else {
-            // 【開始モード】
-            state.isEndMode = false;
-            renderStartProcUI();
+            state.isEndMode = false; renderStartProcUI();
         }
     }
 
-    // --- 3. UI構築（完了モード） ---
     function renderEndUI() {
         refreshSlots();
         const area = document.getElementById('button-area');
         area.innerHTML = "";
         document.getElementById('button-title').innerText = "【完了モード】内容を確認して送信してください";
-
         const btn = document.createElement('button');
         btn.className = "btn-main btn-green";
         btn.innerText = "完了報告を送る";
@@ -142,14 +127,12 @@
         area.appendChild(btn);
     }
 
-    // --- 4. UI構築（開始モード：工程選択） ---
     function renderStartProcUI() {
         state.proc = ''; state.staff = ''; state.mac = '';
         refreshSlots('proc');
         const area = document.getElementById('button-area');
         area.innerHTML = "";
         document.getElementById('button-title').innerText = "担当工程を選択してください";
-
         const config = masters.device ? masters.device.config : "";
         config.split(',').forEach(p => {
             const btn = document.createElement('button');
@@ -160,16 +143,13 @@
         });
     }
 
-    // --- 5. UI構築（開始モード：作業者選択） ---
     function renderStartStaffUI() {
         refreshSlots('staff');
         const area = document.getElementById('button-area');
         area.innerHTML = "";
         document.getElementById('button-title').innerText = "作業者を選択してください";
-
         const filtered = masters.staffs.filter(r => String(r[0]).trim() === state.proc);
         const list = filtered.map(r => String(r[1]).split(',').map(s => s.trim())).flat().filter(Boolean);
-
         if (list.length <= 1) {
             state.staff = list[0] || "-";
             renderStartMacUI();
@@ -184,36 +164,24 @@
         }
     }
 
-// --- 6. UI構築（開始モード：装置選択 → 送信ボタン） ---
     function renderStartMacUI() {
         refreshSlots('mac');
         const area = document.getElementById('button-area');
         area.innerHTML = "";
         document.getElementById('button-title').innerText = "装置を選択してください";
-
-        // マスタから「工程」と「作業者」が合致する装置を抽出
         const deviceRows = masters.machines.filter(r => {
             const mProc = String(r[0] || "").trim();
             const mStaffs = String(r[1] || "").trim();
-            
-            // 1. 工程が一致するか
             if (mProc !== state.proc) return false;
-
-            // 2. 作業者が一致するか (カンマ区切りでも単体でも対応)
             const staffArray = mStaffs.split(',').map(s => s.trim());
             return staffArray.includes(state.staff);
         });
-
-        // 抽出した行にある「装置名」をカンマでバラして、ボタンのリストを作る
         let deviceList = [];
         deviceRows.forEach(r => {
             const mDevices = String(r[2] || "").split(',').map(d => d.trim());
             deviceList = deviceList.concat(mDevices);
         });
-
-        // 重複を削除して、空文字を除外
         const uniqueDevices = [...new Set(deviceList)].filter(Boolean);
-
         const finalize = (m) => {
             state.mac = m;
             refreshSlots();
@@ -225,26 +193,18 @@
             btn.onclick = () => saveRecord("start");
             area.appendChild(btn);
         };
-
-        if (uniqueDevices.length === 0) {
-            finalize("-");
-        } else if (uniqueDevices.length === 1) {
-            finalize(uniqueDevices[0]);
-        } else {
-            // 2つ以上ある場合はボタンを並べる
+        if (uniqueDevices.length === 0) { finalize("-"); } 
+        else if (uniqueDevices.length === 1) { finalize(uniqueDevices[0]); } 
+        else {
             uniqueDevices.forEach(m => {
                 const btn = document.createElement('button');
-                btn.className = "btn-blue";
-                btn.style.width = "100%"; // スマホで押しやすく
-                btn.style.display = "block";
-                btn.innerText = m;
-                btn.onclick = () => finalize(m);
+                btn.className = "btn-blue"; btn.style.width = "100%"; btn.style.display = "block";
+                btn.innerText = m; btn.onclick = () => finalize(m);
                 area.appendChild(btn);
             });
         }
     }
 
-    // --- 7. データ送信 ---
     async function saveRecord(type) {
         document.getElementById('button-area').innerHTML = "<p>送信中...</p>";
         const params = new URLSearchParams({
@@ -252,25 +212,19 @@
             process: state.proc, staff: state.staff, machine: state.mac,
             row: state.targetRow, deviceId: deviceId
         });
-
-        fetch(`${GAS_URL}?${params.toString()}`, { mode: 'no-cors' });
-
-        // 完了時はメモリから即座に消す（爆速対応）
+        fetch(GAS_URL + "?" + params.toString(), { mode: 'no-cors' });
         if (type === "end") {
             masters.activeWorks = masters.activeWorks.filter(w => !(w.tehai == state.tehai && w.proc == state.proc));
         }
-
         alert(type === "end" ? "完了しました" : "開始しました");
         resetToMain();
-        // 裏で同期
         setTimeout(async () => {
-            const resp = await fetch(`${GAS_URL}?action=getAllMasters&deviceId=${deviceId}`);
+            const resp = await fetch(GAS_URL + "?action=getAllMasters&deviceId=" + deviceId);
             const d = await resp.json();
             masters.activeWorks = d.activeWorks;
         }, 1000);
     }
 
-    // --- 補助関数群 ---
     function refreshSlots(activeKey) {
         const keys = ['proc', 'staff', 'mac'];
         keys.forEach(k => {
@@ -305,70 +259,76 @@
         document.getElementById('currentStation').innerText = `端末名: ${name}\n担当工程: ${config}`;
     }
 
-// --- 管理者設定：入口 ---
-function authAdmin() {
-    const pwInput = document.getElementById('adminPwInput');
-    pwInput.value = "";
-    pwInput.type = "password";
-    const chk = document.getElementById('showPw');
-    if (chk) chk.checked = false;
-    showScreen('screenAuth');
-}
-
-// --- パスワード表示切り替え ---
-function togglePw() {
-    const pwInput = document.getElementById('adminPwInput');
-    const chk = document.getElementById('showPw');
-    pwInput.type = chk.checked ? "text" : "password";
-}
-
-// --- パスワード認証 ---
-async function checkPassword() {
-    const input = document.getElementById('adminPwInput').value.trim();
-    if (!input) return alert("パスワードを入力してください");
-
-    const btn = document.getElementById('adminLoginBtn');
-    const originalText = "ログイン";
-    
-    btn.disabled = true;
-    btn.innerText = "認証中...";
-
-    try {
-        const resp = await fetch(`${GAS_URL}?action=getAdminPassword`);
-        const res = await resp.json();
-
-        if (String(input) === String(res.password).trim()) {
-            loadConfigScreen();
-        } else {
-            alert("パスワードが違います");
-            btn.disabled = false;
-            btn.innerText = originalText;
-        }
-    } catch (e) {
-        console.error(e);
-        alert("通信エラーが発生しました。GASの公開設定を確認してください。");
-        btn.disabled = false;
-        btn.innerText = originalText;
+    function authAdmin() {
+        const pwInput = document.getElementById('adminPwInput');
+        pwInput.value = "";
+        pwInput.type = "password";
+        const chk = document.getElementById('showPw');
+        if (chk) chk.checked = false;
+        showScreen('screenAuth');
     }
-}
 
-    // --- 設定保存（デザインを同期中に合わせ、アラートを廃止） ---
+    function togglePw() {
+        const pwInput = document.getElementById('adminPwInput');
+        const chk = document.getElementById('showPw');
+        pwInput.type = chk.checked ? "text" : "password";
+    }
+
+    async function checkPassword() {
+        const input = document.getElementById('adminPwInput').value.trim();
+        if (!input) return alert("パスワードを入力してください");
+        const btn = document.getElementById('adminLoginBtn');
+        btn.disabled = true;
+        btn.innerText = "認証中...";
+        try {
+            const resp = await fetch(GAS_URL + "?action=getAdminPassword");
+            const res = await resp.json();
+            if (String(input) === String(res.password).trim()) {
+                loadConfigScreen();
+            } else {
+                alert("パスワードが違います");
+                btn.disabled = false; btn.innerText = "ログイン";
+            }
+        } catch (e) {
+            console.error(e);
+            alert("通信エラー：URLの末尾に空白等の不純物がないか確認してください");
+            btn.disabled = false; btn.innerText = "ログイン";
+        }
+    }
+
+    function loadConfigScreen() {
+        showScreen('screenConfig');
+        document.getElementById('inputDeviceName').value = masters.device ? masters.device.name : "";
+        const list = document.getElementById('configList');
+        list.innerHTML = "";
+        const allProcs = masters.processes || [];
+        const currentConfig = (masters.device?.config || "").split(',').map(s=>s.trim());
+        allProcs.forEach(p => {
+            const b = document.createElement('button');
+            b.innerText = p; b.style.margin = "3px";
+            const isSelected = currentConfig.includes(p);
+            b.className = isSelected ? "btn-blue" : "btn-gray";
+            b.dataset.selected = isSelected ? "true" : "false";
+            b.onclick = () => {
+                const sel = b.dataset.selected === "true";
+                b.className = sel ? "btn-gray" : "btn-blue";
+                b.dataset.selected = sel ? "false" : "true";
+            };
+            list.appendChild(b);
+        });
+    }
+
     async function saveConfig() {
         const name = document.getElementById('inputDeviceName').value.trim();
         const sel = Array.from(document.querySelectorAll('#configList button'))
                          .filter(b => b.dataset.selected === "true")
                          .map(b => b.innerText).join(',');
-        
         if(!name || !sel) return alert("内容を確認してください");
-
-        // 待機画面のメッセージを書き換えて表示
         const waitMsg = document.querySelector('#screenWait p');
         if(waitMsg) waitMsg.innerText = "設定を保存して同期中...";
         showScreen('screenWait');
-
         try {
-            await fetch(`${GAS_URL}?action=saveDeviceConfig&deviceId=${deviceId}&deviceName=${encodeURIComponent(name)}&processList=${encodeURIComponent(sel)}`, {mode:'no-cors'});
-            // 完了後、少し余韻を持たせてリロード
+            await fetch(GAS_URL + "?action=saveDeviceConfig&deviceId=" + deviceId + "&deviceName=" + encodeURIComponent(name) + "&processList=" + encodeURIComponent(sel), {mode:'no-cors'});
             setTimeout(() => { location.reload(); }, 800);
         } catch(e) {
             alert("保存に失敗しました");
