@@ -11,9 +11,8 @@
     .header-flex { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; }
     
     #main-order-no { font-size: 28px; font-weight: bold; border: 2px solid #007bff; background: #fffde7; padding: 5px; width: 300px; }
-    
-    /* QRコード表示エリア（画像方式に変更） */
-    #qr-image { width: 100px; height: 100px; } 
+    /* QRコード表示エリア：サイズ固定 */
+    #qr-image { width: 100px; height: 100px; border: 1px solid #eee; }
 
     table.preview-table { 
       table-layout: fixed; 
@@ -31,7 +30,6 @@
     .save-btn { padding: 15px 30px; background: #28a745; color: white; border: none; font-size: 20px; cursor: pointer; font-weight: bold; }
     .nav-btn { padding: 5px 15px; font-size: 20px; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; }
 
-    /* 印刷時に「横向き」を強制 */
     @media print {
       @page { size: landscape; margin: 10mm; }
       body { background: white; padding: 0; }
@@ -43,10 +41,10 @@
 </head>
 <body>
 
-<div id="debug-log"><div>[System Log v6.83 - CSP Patch]</div></div>
+<div id="debug-log"><div>[System Log v6.85 - QR Restored]</div></div>
 
 <div class="top-bar">
-  <strong>指示書作成コックピット v6.83</strong>
+  <strong>指示書作成コックピット v6.85</strong>
   <div id="status-display">Syncing...</div>
 </div>
 
@@ -89,10 +87,15 @@ let master = { existingNos: {} };
 let masterProcs = [];
 let currentIdx = 0;
 
-// QRコード更新関数（画像URLを差し替えるだけ）
+// QRコードを生成する中心関数
 function updateQR(val) {
   const qrImg = document.getElementById('qr-image');
-  qrImg.src = val ? `https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=${encodeURIComponent(val)}&choe=UTF-8` : "";
+  if (val) {
+    // Google Chart APIを使用してQR画像を生成
+    qrImg.src = `https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=${encodeURIComponent(val)}&choe=UTF-8`;
+  } else {
+    qrImg.src = "";
+  }
 }
 
 window.onload = async () => {
@@ -110,7 +113,7 @@ async function fetchMaster() {
     updateCockpit();
     log("同期完了");
     document.getElementById('status-display').innerText = "Ready";
-  } catch (e) { log("初期通信失敗"); }
+  } catch (e) { log("初期通信に失敗しました。"); }
 }
 
 function initUI() {
@@ -132,6 +135,7 @@ function initUI() {
   });
 }
 
+// 手配No入力時にQRコードを更新
 document.getElementById('main-order-no').addEventListener('input', function() {
   updateQR(this.value.trim());
 });
@@ -141,7 +145,7 @@ document.getElementById('main-order-no').addEventListener('keydown', async funct
     const val = this.value.trim();
     if (!val) return;
     clearPreview();
-    updateQR(val);
+    updateQR(val); // Enter時にもQR更新を確定
     const rangeInfo = master.existingNos[val];
     if (rangeInfo) {
       log(`読込開始: ${val}`);
@@ -212,11 +216,13 @@ function clearPreview() {
 async function saveAndPrint() {
   const orderNo = document.getElementById('main-order-no').value.trim();
   if (!orderNo) return alert("手配No未入力");
+  
   let payload = [];
   masterProcs.forEach((name, i) => {
     const d = editData[i];
     if (d.order || d.st || d.limit) payload.push([name, d.order, d.st, d.limit]);
   });
+  
   log("保存中...");
   try {
     const url = `${GAS_URL}?method=saveOnly&orderNo=${encodeURIComponent(orderNo)}&allData=${encodeURIComponent(JSON.stringify(payload))}`;
@@ -227,7 +233,7 @@ async function saveAndPrint() {
       log("保存完了。印刷します。");
       window.print();
     }
-  } catch(e) { log("保存通信失敗"); }
+  } catch(e) { log("保存通信に失敗しました。"); }
 }
 
 function log(m) { 
