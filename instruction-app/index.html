@@ -5,18 +5,17 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <style>
     body { font-family: "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 10px; background: #e9ecef; }
-    /* デバッグパネル */
-    #debug-log { background: #000; color: #0f0; font-family: monospace; font-size: 11px; padding: 10px; margin-bottom: 10px; border-radius: 4px; max-height: 150px; overflow-y: auto; }
+    #debug-log { background: #000; color: #0f0; font-family: monospace; font-size: 11px; padding: 10px; margin-bottom: 10px; border-radius: 4px; max-height: 180px; overflow-y: auto; border: 2px solid #555; }
     .top-bar { background: #343a40; color: white; padding: 10px 20px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
     #preview-container { background: white; padding: 20px; border: 1px solid #ccc; margin-bottom: 15px; width: calc(100% - 42px); box-sizing: border-box; overflow-x: auto; }
     .order-input-group { display: flex; align-items: center; font-size: 28px; font-weight: bold; margin-bottom: 10px; }
     #main-order-no { font-size: 28px; font-weight: bold; border: 2px solid #007bff; border-radius: 6px; padding: 2px 10px; width: 300px; margin-left: 10px; background: #fffde7; }
     table.preview-table { border-collapse: collapse; width: 100%; min-width: 1100px; table-layout: fixed; }
-    .preview-table th, .preview-table td { border: 1px solid #000; font-size: 10px; text-align: center; height: 35px; word-break: break-all; }
+    .preview-table th, .preview-table td { border: 1px solid #000; font-size: 10px; text-align: center; height: 35px; }
     .preview-table th { background: #f2f2f2; }
     #main-controls { background: white; padding: 15px; border-radius: 8px; border-top: 5px solid #007bff; }
     .disabled-overlay { opacity: 0.2; pointer-events: none; filter: grayscale(1); }
-    #button-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; min-height: 40px; }
+    #button-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; }
     .proc-btn { padding: 8px 12px; font-size: 13px; font-weight: bold; cursor: pointer; border: 1px solid #adb5bd; background: #fff; border-radius: 4px; }
     .proc-btn.active { background: #007bff; color: white; }
     .input-card { border: 1px solid #007bff; padding: 20px; border-radius: 8px; width: 400px; }
@@ -26,17 +25,15 @@
 </head>
 <body>
 
-<div id="debug-log"><div>[System Log]</div></div>
+<div id="debug-log"><div>[System Debug Log v6.75]</div></div>
 
 <div class="top-bar">
-  <strong>指示書作成コックピット v6.74 (Debug)</strong>
+  <strong>指示書作成コックピット v6.75</strong>
   <div id="status-display" style="font-size: 12px; color: #00ff00;">Ready</div>
 </div>
 
 <div id="preview-container">
-  <div class="order-input-group">
-    手配No : <input type="text" id="main-order-no" placeholder="Enterで確定">
-  </div>
+  <div class="order-input-group">手配No : <input type="text" id="main-order-no"></div>
   <table class="preview-table">
     <thead id="thr-proc"><tr><th style="width:80px;">工程</th></tr></thead>
     <tbody>
@@ -51,11 +48,11 @@
   <div id="button-grid"></div>
   <div style="display:flex; justify-content:space-between; align-items:flex-end;">
     <div class="input-card">
-      <div id="target-proc-name" style="font-size:20px; font-weight:bold; color:#007bff; margin-bottom:15px;">工程を選択してください</div>
-      <div style="display:grid; grid-template-columns: 80px 1fr; gap: 10px; align-items: center;">
-        <label>指示順</label><input type="number" id="inp-order" oninput="sync()" style="font-size:18px;">
-        <label>ST</label><input type="number" id="inp-st" oninput="sync()" style="font-size:18px;">
-        <label>納期</label><input type="date" id="inp-limit" oninput="sync()" style="font-size:18px;">
+      <div id="target-proc-name" style="font-size:20px; font-weight:bold; color:#007bff; margin-bottom:15px;">工程選択</div>
+      <div style="display:grid; grid-template-columns: 80px 1fr; gap: 10px;">
+        <label>指示順</label><input type="number" id="inp-order" oninput="sync()">
+        <label>ST</label><input type="number" id="inp-st" oninput="sync()">
+        <label>納期</label><input type="date" id="inp-limit" oninput="sync()">
       </div>
     </div>
     <button class="save-btn" onclick="saveAndPrint()">保存 ＆ 指示書発行</button>
@@ -69,10 +66,8 @@ let editData = {};
 let currentProcIdx = -1;
 
 function log(msg) {
-  const div = document.createElement('div');
-  div.innerText = `> ${msg}`;
   const logEl = document.getElementById('debug-log');
-  logEl.appendChild(div);
+  logEl.innerHTML += `<div>> ${msg}</div>`;
   logEl.scrollTop = logEl.scrollHeight;
 }
 
@@ -92,19 +87,21 @@ window.onload = () => {
 };
 
 async function fetchMaster() {
-  log("マスタ取得開始...");
+  log("getMasters 呼び出し中...");
   try {
     const res = await fetch(`${GAS_URL}?method=getMasters`);
     master = await res.json();
-    log(`マスタ受信完了: 工程数=${master.processes.length}`);
-    // メモリ上の手配Noインデックスの状況を表示
-    const indexCount = Object.keys(master.existingNos || {}).length;
-    log(`手配Noインデックス数: ${indexCount}`);
+    
+    // インデックス情報の詳細ログ
+    const keys = Object.keys(master.existingNos || {});
+    log(`受信工程数: ${master.processes.length}`);
+    log(`受信手配No数: ${keys.length}`);
+    if(keys.length > 0) log(`インデックス例: ${keys.slice(0,3).join(', ')}...`);
     
     updateUIWithMaster();
     document.getElementById('status-display').innerText = "Ready";
     document.getElementById('main-order-no').focus();
-  } catch (e) { log(`エラー(fetchMaster): ${e}`); }
+  } catch (e) { log(`初期化エラー: ${e}`); }
 }
 
 function updateUIWithMaster() {
@@ -124,28 +121,23 @@ document.getElementById('main-order-no').addEventListener('keydown', async funct
   if (e.key === 'Enter') {
     const val = this.value.trim();
     if (!val) return;
-    log(`手配No確定: ${val}`);
+    log(`--- 手配No入力: ${val} ---`);
     clearPreview(); 
 
-    // メモリ配列上の存在判定結果を表示
-    const exists = master.existingNos && master.existingNos[val];
-    log(`メモリ上の存在判定: ${exists ? "あり" : "なし"}`);
+    // メモリ上の完全一致判定
+    const exists = master.existingNos && master.existingNos.hasOwnProperty(val);
+    log(`メモリ内検索結果: ${exists ? "一致あり" : "一致なし"}`);
 
     if (exists) {
-      log("GASへ詳細データ取得をリクエスト中...");
+      log("GASへ詳細データ(getExistingOrder)を請求...");
       try {
         const res = await fetch(`${GAS_URL}?method=getExistingOrder&orderNo=${encodeURIComponent(val)}`);
         const rows = await res.json();
-        log(`受信データ(生): ${JSON.stringify(rows)}`);
-        
-        if (rows && rows.length > 0) {
-          restoreData(rows); 
-        } else {
-          log("警告: 受信データが空配列です。");
-        }
-      } catch (err) { log(`エラー(データ取得): ${err}`); }
+        log(`データ取得成功: ${rows.length}件の工程情報を発見`);
+        restoreData(rows); 
+      } catch (err) { log(`詳細取得エラー: ${err}`); }
     } else {
-      log("新規手配Noとして処理します。");
+      log("新規データとして入力を開始します。");
     }
     document.getElementById('main-controls').classList.remove('disabled-overlay');
     if (currentProcIdx === -1) selectProc(0);
@@ -153,10 +145,9 @@ document.getElementById('main-order-no').addEventListener('keydown', async funct
 });
 
 function restoreData(rows) {
-  log(`データ復元開始 (対象行数: ${rows.length})`);
-  rows.forEach((row, i) => {
-    const procName = row[0];
-    const idx = master.processes.indexOf(procName);
+  rows.forEach(row => {
+    const pName = row[0];
+    const idx = master.processes.indexOf(pName);
     if (idx !== -1) {
       editData[idx].order = row[1] || "";
       editData[idx].st = row[2] || "";
@@ -165,9 +156,6 @@ function restoreData(rows) {
       document.getElementById(`d-o-${idx}`).innerText = editData[idx].order;
       document.getElementById(`d-s-${idx}`).innerText = editData[idx].st;
       document.getElementById(`d-l-${idx}`).innerText = editData[idx].limit ? editData[idx].limit.split('-').slice(1).join('/') : "";
-      log(`反映成功: [${procName}] -> Index ${idx}`);
-    } else {
-      log(`反映失敗: 工程名 [${procName}] がマスタに見つかりません`);
     }
   });
 }
@@ -209,16 +197,13 @@ async function saveAndPrint() {
     const d = editData[idx];
     if (d.order || d.st || d.limit) payload.push([d.name, d.order, d.st, d.limit]);
   });
-  log("保存リクエスト送信中...");
   try {
     const res = await fetch(`${GAS_URL}?method=saveOnly&orderNo=${encodeURIComponent(orderNo)}&allData=${encodeURIComponent(JSON.stringify(payload))}`);
-    const resData = await res.json();
-    log(`保存結果: ${resData}`);
-    if (resData === "保存成功") {
+    if ((await res.json()) === "保存成功") {
       master.existingNos[orderNo] = true;
       window.print();
     }
-  } catch(e) { log(`エラー(保存): ${e}`); }
+  } catch(e) { log(`保存エラー: ${e}`); }
 }
 </script>
 </body>
