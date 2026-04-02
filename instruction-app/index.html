@@ -3,6 +3,7 @@
 <head>
   <base target="_top">
   <style>
+    /* 既存のスタイルは維持 */
     body { font-family: sans-serif; margin: 0; padding: 10px; background: #e9ecef; }
     #debug-log { background: #000; color: #0f0; font-family: monospace; font-size: 11px; padding: 10px; margin-bottom: 10px; height: 100px; overflow-y: auto; }
     .top-bar { background: #343a40; color: white; padding: 10px 20px; display: flex; justify-content: space-between; }
@@ -19,11 +20,11 @@
 </head>
 <body>
 
-<div id="debug-log"><div>[System Log v6.77]</div></div>
+<div id="debug-log"><div>[System Log v6.78]</div></div>
 
 <div class="top-bar">
-  <strong>指示書作成コックピット v6.77</strong>
-  <div id="status-display">Ready</div>
+  <strong>指示書作成コックピット v6.78</strong>
+  <div id="status-display">Initializing...</div>
 </div>
 
 <div id="preview-container">
@@ -51,14 +52,21 @@
 
 <script>
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyQ8KW8Z8bPXIu-piVjydNI-na8gBygz1UVCrvGjFRdpJ-NPoj2fk14bzkv62AY4r8T/exec";
-// 工程リストをHTML側で固定定義（通信を削減）
 const FIXED_PROCS = ["LA", "MM", "VM", "HT", "SG1", "SG2", "W/C", "組付", "検査", "出荷"]; 
 let editData = {};
+let master = { existingNos: {} }; // メモリ上の「地図（インデックス）」
 let currentProcIdx = -1;
 
 function log(m) { document.getElementById('debug-log').innerHTML += `<div>> ${m}</div>`; }
 
-window.onload = () => {
+window.onload = async () => {
+  // UI構築
+  initUI();
+  // 初期ロード：GASから最新の「地図」を取得
+  await fetchMaster();
+};
+
+function initUI() {
   const thr = document.getElementById('thr-proc').rows[0];
   const trO = document.getElementById('tr-order');
   const trS = document.getElementById('tr-st');
@@ -70,45 +78,65 @@ window.onload = () => {
     trO.innerHTML += `<td id="d-o-${i}"></td>`;
     trS.innerHTML += `<td id="d-s-${i}"></td>`;
     trL.innerHTML += `<td id="d-l-${i}"></td>`;
-    
     const btn = document.createElement('button');
     btn.className = 'proc-btn'; btn.innerText = proc;
     btn.onclick = () => selectProc(i);
     grid.appendChild(btn);
-    
     editData[i] = { name: proc, order: "", st: "", limit: "" };
   });
-  log("UI初期化完了。手配Noを入力してください。");
-};
+}
+
+async function fetchMaster() {
+  log("最新の行位置情報を取得中...");
+  try {
+    const res = await fetch(`${GAS_URL}?method=getMasters`);
+    const data = await res.json();
+    master.existingNos = data.existingNos || {};
+    log(`同期完了: ${Object.keys(master.existingNos).length}件の手配Noを認識`);
+    document.getElementById('status-display').innerText = "Ready";
+  } catch (e) { log("初期ロード失敗: " + e); }
+}
 
 document.getElementById('main-order-no').addEventListener('keydown', async function(e) {
   if (e.key === 'Enter') {
     const val = this.value.trim();
     if (!val) return;
-    log(`手配No [${val}] を T_工程詳細 から検索中...`);
+    
     clearPreview();
+    const rangeInfo = master.existingNos[val]; // メモリから行範囲を特定
 
-    try {
-      // GAS側の getExistingOrder は直接 T_工程詳細 を見に行くようにしてください
-      const res = await fetch(`${GAS_URL}?method=getExistingOrder&orderNo=${encodeURIComponent(val)}`);
-      const rows = await res.json();
-      log(`検索結果: ${rows.length} 件見つかりました`);
-      
-      if (rows.length > 0) {
+    if (rangeInfo) {
+      log(`手配No [${val}] を発見。${rangeInfo[0]}行目から読み込みます...`);
+      try {
+        const res = await fetch(`${GAS_URL}?method=getExistingOrder&range=${JSON.stringify(rangeInfo)}`);
+        const rows = await res.json();
+        
         rows.forEach(row => {
           const idx = FIXED_PROCS.indexOf(row[0]);
           if (idx !== -1) {
-            editData[idx] = { name: row[0], order: row[1], st: row[2], limit: row[3] ? row[3].split('T')[0] : "" };
-            document.getElementById(`d-o-${idx}`).innerText = editData[idx].order;
-            document.getElementById(`d-s-${idx}`).innerText = editData[idx].st;
-            document.getElementById(`d-l-${idx}`).innerText = editData[idx].limit ? editData[idx].limit.split('-').slice(1).join('/') : "";
+            editData[idx] = { 
+              name: row[0], 
+              order: row[1], 
+              st: row[2], 
+              limit: row[3] ? row[3].split('T')[0] : "" 
+            };
+            updatePreviewCell(idx);
           }
         });
         log("プレビューに反映しました。");
-      }
-    } catch (err) { log("検索エラーまたはデータなし"); }
+      } catch (err) { log("データ取得失敗"); }
+    } else {
+      log("新規手配Noです。");
+    }
   }
 });
+
+function updatePreviewCell(idx) {
+  const d = editData[idx];
+  document.getElementById(`d-o-${idx}`).innerText = d.order;
+  document.getElementById(`d-s-${idx}`).innerText = d.st;
+  document.getElementById(`d-l-${idx}`).innerText = d.limit ? d.limit.split('-').slice(1).join('/') : "";
+}
 
 function selectProc(idx) {
   currentProcIdx = idx;
@@ -125,9 +153,7 @@ function sync() {
   d.order = document.getElementById('inp-order').value;
   d.st = document.getElementById('inp-st').value;
   d.limit = document.getElementById('inp-limit').value;
-  document.getElementById(`d-o-${currentProcIdx}`).innerText = d.order;
-  document.getElementById(`d-s-${currentProcIdx}`).innerText = d.st;
-  document.getElementById(`d-l-${currentProcIdx}`).innerText = d.limit ? d.limit.split('-').slice(1).join('/') : "";
+  updatePreviewCell(currentProcIdx);
 }
 
 function clearPreview() {
@@ -140,19 +166,29 @@ function clearPreview() {
 }
 
 async function saveAndPrint() {
-  // ... (前略) ...
+  const orderNo = document.getElementById('main-order-no').value.trim();
+  if (!orderNo) return alert("手配No未入力");
+
+  let payload = [];
+  FIXED_PROCS.forEach((name, i) => {
+    const d = editData[i];
+    if (d.order || d.st || d.limit) {
+      payload.push([name, d.order, d.st, d.limit]);
+    }
+  });
+
+  log("保存中...");
   try {
-    const res = await fetch(`${GAS_URL}?method=saveOnly&...`);
-    const result = await res.json(); // ここでオブジェクトとして受け取る
-    
+    const url = `${GAS_URL}?method=saveOnly&orderNo=${encodeURIComponent(orderNo)}&allData=${encodeURIComponent(JSON.stringify(payload))}`;
+    const res = await fetch(url);
+    const result = await res.json();
+
     if (result.status === "保存成功") {
-      // メモリ上の「地図」を最新に更新（これで次の検索も爆速かつ正確になる）
-      master.existingNos = result.newIndex;
-      
-      log("保存とインデックス更新が完了しました。");
+      log("保存成功。最新の地図を同期しました。");
+      master.existingNos = result.newIndex; // インデックスを最新に更新
       window.print();
     } else {
-      log("エラー: " + result.message);
+      log("保存失敗: " + result.message);
     }
   } catch(e) { log("通信エラー"); }
 }
