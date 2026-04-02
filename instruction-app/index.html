@@ -6,33 +6,40 @@
   <style>
     body { font-family: "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 10px; background: #e9ecef; }
     
+    /* ローディング画面 */
+    #loading-screen {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: white; display: flex; justify-content: center; align-items: center;
+      z-index: 2000; font-size: 20px; font-weight: bold;
+    }
+
     .top-bar { display: flex; align-items: center; background: #343a40; color: white; padding: 10px 20px; border-radius: 8px; margin-bottom: 10px; }
     .top-title { font-weight: bold; }
     .top-date { margin-left: auto; font-size: 14px; }
 
     #preview-container { 
       background: white; padding: 20px; border: 1px solid #ccc; margin-bottom: 15px; 
-      width: calc(100% - 42px); box-sizing: border-box; overflow-x: auto; 
+      width: calc(100% - 42px); box-sizing: border-box; overflow-x: auto;
     }
     .preview-header { display: flex; align-items: center; gap: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-    
     .order-input-group { display: flex; align-items: center; font-size: 30px; font-weight: bold; }
+    
+    /* 手配No入力：確定前は黄色背景で強調 */
     #main-order-no {
       font-size: 30px; font-weight: bold; border: 2px solid #007bff; border-radius: 6px;
-      padding: 2px 10px; width: 300px; margin-left: 10px;
+      padding: 2px 10px; width: 300px; margin-left: 10px; background: #fffde7;
     }
-    #main-order-no.warning { border-color: #dc3545; box-shadow: 0 0 8px rgba(220,53,69,0.5); }
-    
+    #main-order-no.fixed { background: #e8f0fe; border-color: #28a745; }
+
     table.preview-table { border-collapse: collapse; width: 100% !important; min-width: 800px; table-layout: fixed; margin-top: 15px; }
     .preview-table th, .preview-table td { border: 1px solid #000; font-size: 10px; text-align: center; height: 35px; word-break: break-all; }
     .preview-table th { background: #f2f2f2; font-size: 9px; }
     #qr-area canvas { width: 85px !important; height: 85px !important; }
 
-    .disabled-overlay { opacity: 0.3; pointer-events: none; filter: grayscale(1); }
-
+    .disabled-overlay { opacity: 0.3; pointer-events: none; filter: grayscale(1); transition: all 0.2s ease; }
     #button-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; }
     .proc-btn { padding: 8px 12px; font-size: 14px; font-weight: bold; cursor: pointer; border: 1px solid #adb5bd; background: #fff; border-radius: 4px; }
-    .proc-btn.active { background: #007bff; color: white; }
+    .proc-btn.active { background: #007bff; color: white; border-color: #0056b3; }
 
     .action-area { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
     #input-card { background: #fff; padding: 20px; border-radius: 8px; border: 2px solid #007bff; width: 450px; }
@@ -48,43 +55,34 @@
     .save-btn { padding: 20px 40px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 20px; }
     #archive-btn-float { position: fixed; bottom: 20px; right: 20px; background: #6c757d; color: white; border: none; border-radius: 50px; padding: 10px 25px; cursor: pointer; font-size: 14px; }
 
-    /* 印刷用修正：A4横・白黒・1ページ固定設定 */
     @media print {
       @page { size: A4 landscape; margin: 5mm; }
-      html, body { 
-        width: 297mm; height: 210mm; background: white !important; 
-        filter: grayscale(100%); /* 強制白黒化 */
-      }
-      .top-bar, #button-grid, .action-area, #archive-btn-float { display: none !important; }
-      
-      #preview-container { 
-        border: none; padding: 0; margin: 0; width: 100% !important; 
-        transform: scale(0.98); transform-origin: top left; /* 1ページに収めるための微調整 */
-      }
-      .preview-header { border-bottom: 3px solid #000; }
-      #main-order-no { border: none; padding: 0; width: auto; font-size: 35px; }
-      table.preview-table { width: 100% !important; border: 2px solid #000; }
-      .preview-table th { background: #eee !important; color: #000 !important; -webkit-print-color-adjust: exact; }
-      .preview-table td, .preview-table th { border: 1px solid #000 !important; color: #000 !important; }
+      html, body { width: 297mm; height: 210mm; background: white !important; filter: grayscale(100%); }
+      .top-bar, #button-grid, .action-area, #archive-btn-float, #loading-screen { display: none !important; }
+      #preview-container { border: none; padding: 0; margin: 0; width: 100% !important; transform: scale(0.98); transform-origin: top left; }
+      #main-order-no { border: none; background: none; padding: 0; width: auto; }
+      .preview-table th { background: #eee !important; -webkit-print-color-adjust: exact; }
     }
   </style>
 </head>
 <body>
 
+<div id="loading-screen">システム起動中...</div>
+
 <div class="top-bar">
-  <span class="top-title">指示書作成コックピット v6.64</span>
+  <span class="top-title">指示書作成コックピット v6.66</span>
   <div class="top-date">作成日: <span id="disp-date"></span></div>
 </div>
 
 <div id="preview-container">
   <div class="preview-header">
     <div class="order-input-group">
-      手配No : <input type="text" id="main-order-no" class="warning" placeholder="手配Noを入力">
+      手配No : <input type="text" id="main-order-no" placeholder="番号入力後Enterで確定">
     </div>
     <div id="qr-area" style="margin-left: auto;"><canvas id="qrcode"></canvas></div>
   </div>
-  <table class="preview-table">
-    <thead><tr id="thr-proc"><th>工程</th></tr></thead>
+  <table class="preview-table" id="main-table">
+    <thead id="thr-proc"><tr><th>工程</th></tr></thead>
     <tbody>
       <tr id="tr-order"><th>指示順</th></tr>
       <tr id="tr-st"><th>ST</th></tr>
@@ -127,7 +125,6 @@ let currentProcIdx = -1;
 window.onload = () => {
   document.getElementById('disp-date').innerText = new Date().toLocaleDateString();
   fetchMaster(); 
-  document.getElementById('main-order-no').focus();
 };
 
 async function fetchMaster() {
@@ -135,19 +132,48 @@ async function fetchMaster() {
     const res = await fetch(`${GAS_URL}?method=getMasters`);
     master = await res.json();
     initUI();
+    document.getElementById('loading-screen').style.display = 'none'; // 準備ができたら隠す
+    document.getElementById('main-order-no').focus();
   } catch (err) { console.error("Fetch Error:", err); }
 }
 
-document.getElementById('main-order-no').addEventListener('input', function() {
-  const val = this.value.trim();
-  if (val) {
-    this.classList.remove('warning');
-    document.getElementById('main-controls').classList.remove('disabled-overlay');
-    try { QRCode.toCanvas(document.getElementById('qrcode'), val, { width: 85, margin: 2 }); } catch(e){}
-    if (currentProcIdx === -1) selectProc(0);
-  } else {
-    this.classList.add('warning');
-    document.getElementById('main-controls').classList.add('disabled-overlay');
+// 手配NoのEnter確定と存在チェック
+document.getElementById('main-order-no').addEventListener('keydown', async function(e) {
+  if (e.key === 'Enter') {
+    const val = this.value.trim();
+    if (!val) return;
+
+    // 確定状態の演出
+    this.classList.add('fixed');
+    this.blur();
+    
+    // QR生成
+    try { QRCode.toCanvas(document.getElementById('qrcode'), val, { width: 85, margin: 2 }); } catch(err){}
+
+    // すでに存在するかGAS側に問い合わせ
+    document.getElementById('loading-screen').innerText = "データ確認中...";
+    document.getElementById('loading-screen').style.display = 'flex';
+    
+    try {
+      const res = await fetch(`${GAS_URL}?method=getExistingOrder&orderNo=${encodeURIComponent(val)}`);
+      const existingData = await res.json();
+      
+      if (existingData && existingData.length > 0) {
+        // 既存データがある場合は反映
+        restoreData(existingData);
+      } else {
+        // 新規の場合はクリア（念のため）
+        clearAllInputs();
+      }
+      
+      document.getElementById('main-controls').classList.remove('disabled-overlay');
+      if (currentProcIdx === -1) selectProc(0);
+      
+    } catch (err) {
+      console.error("Check Error:", err);
+    } finally {
+      document.getElementById('loading-screen').style.display = 'none';
+    }
   }
 });
 
@@ -160,6 +186,9 @@ function initUI() {
   const extraSelect = document.getElementById('extra-proc-select');
   
   thr.innerHTML = '<th>工程</th>'; 
+  trO.innerHTML = '<th>指示順</th>';
+  trS.innerHTML = '<th>ST</th>';
+  trL.innerHTML = '<th>納期</th>';
   btnGrid.innerHTML = '';
   extraSelect.innerHTML = '<option value="">-- 工程選択 --</option>';
 
@@ -168,17 +197,72 @@ function initUI() {
     trO.innerHTML += `<td id="d-o-${i}"></td>`;
     trS.innerHTML += `<td id="d-s-${i}"></td>`;
     trL.innerHTML += `<td id="d-l-${i}"></td>`;
+    
     const btn = document.createElement('button');
     btn.className = 'proc-btn';
     btn.innerText = proc;
     btn.onclick = () => selectProc(i);
     btnGrid.appendChild(btn);
+    
     editData[i] = { name: proc, order: "", st: "", limit: "" };
     if(!proc.includes("予備")){
       const opt = document.createElement('option');
       opt.value = proc; opt.innerText = proc;
       extraSelect.appendChild(opt);
     }
+  });
+}
+
+// 既存データを画面に復元する
+function restoreData(rows) {
+  // 一旦全クリア
+  clearAllInputs();
+  
+  rows.forEach(row => {
+    const [procName, order, st, limit] = row;
+    // masterのプロセス名と一致するインデックスを探す
+    const idx = master.processes.indexOf(procName);
+    
+    if (idx !== -1) {
+      editData[idx] = { 
+        name: procName, 
+        order: order || "", 
+        st: st || "", 
+        limit: limit ? limit.split('T')[0] : "" 
+      };
+      // プレビュー反映
+      updatePreviewRow(idx);
+    } else {
+      // 予備工程などの場合、空いている予備枠を探して入れる
+      const spareIdx = master.processes.findIndex((p, i) => p.includes("予備") && !editData[i].order && !editData[i].st);
+      if (spareIdx !== -1) {
+        editData[spareIdx] = { 
+          name: procName, 
+          order: order || "", 
+          st: st || "", 
+          limit: limit ? limit.split('T')[0] : "" 
+        };
+        document.getElementById('thr-proc').children[spareIdx + 1].innerText = procName;
+        updatePreviewRow(spareIdx);
+      }
+    }
+  });
+}
+
+function updatePreviewRow(idx) {
+  const d = editData[idx];
+  document.getElementById(`d-o-${idx}`).innerText = d.order;
+  document.getElementById(`d-s-${idx}`).innerText = d.st;
+  document.getElementById(`d-l-${idx}`).innerText = d.limit ? d.limit.split('-').slice(1).join('/') : "";
+}
+
+function clearAllInputs() {
+  master.processes.forEach((proc, i) => {
+    editData[i] = { name: proc, order: "", st: "", limit: "" };
+    document.getElementById(`d-o-${i}`).innerText = "";
+    document.getElementById(`d-s-${i}`).innerText = "";
+    document.getElementById(`d-l-${i}`).innerText = "";
+    document.getElementById('thr-proc').children[i+1].innerText = proc;
   });
 }
 
@@ -206,9 +290,7 @@ function sync() {
   editData[currentProcIdx].order = o;
   editData[currentProcIdx].st = s;
   editData[currentProcIdx].limit = l;
-  document.getElementById(`d-o-${currentProcIdx}`).innerText = o;
-  document.getElementById(`d-s-${currentProcIdx}`).innerText = s;
-  document.getElementById(`d-l-${currentProcIdx}`).innerText = l ? l.split('-').slice(1).join('/') : "";
+  updatePreviewRow(currentProcIdx);
 }
 
 function handleExtraSelect() {
@@ -216,6 +298,7 @@ function handleExtraSelect() {
   if (selectedName) {
     editData[currentProcIdx].name = selectedName;
     document.getElementById('current-proc-display').innerText = selectedName;
+    document.getElementById('thr-proc').children[currentProcIdx + 1].innerText = selectedName;
   }
 }
 
