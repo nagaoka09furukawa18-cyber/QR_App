@@ -111,8 +111,17 @@
 
 <div id="main-controls" class="disabled-overlay">
   <div id="button-grid"></div>
+
   <div class="action-area">
-    </div>
+    <div id="input-card">
+      <div class="card-header">
+        <div class="nav-btn" onclick="navProc(-1)">◁</div>
+        <div id="current-proc-display" class="current-proc-title">未選択</div>
+        <div id="next-btn-focus" class="nav-btn" onclick="navProc(1)" tabindex="0">▷</div>
+      </div>
+      </div>
+    <button class="save-btn" id="save-focus" onclick="saveAndPrint()">保存 ＆ 指示書発行</button>
+  </div>
 </div>
 
 <div id="preview-container">
