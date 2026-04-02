@@ -2,6 +2,7 @@
 <html>
 <head>
   <base target="_top">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <style>
     body { font-family: sans-serif; margin: 0; padding: 10px; background: #e9ecef; }
     #debug-log { background: #000; color: #0f0; font-family: monospace; font-size: 11px; padding: 10px; margin-bottom: 10px; height: 100px; overflow-y: auto; }
@@ -11,8 +12,9 @@
     .header-flex { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; }
     
     #main-order-no { font-size: 28px; font-weight: bold; border: 2px solid #007bff; background: #fffde7; padding: 5px; width: 300px; }
-    /* QRコード表示エリア：サイズ固定 */
-    #qr-image { width: 100px; height: 100px; border: 1px solid #eee; }
+    
+    /* QRコード表示エリア：Canvasサイズ固定 */
+    #qr-container canvas { width: 100px !important; height: 100px !important; border: 1px solid #eee; }
 
     table.preview-table { 
       table-layout: fixed; 
@@ -41,10 +43,10 @@
 </head>
 <body>
 
-<div id="debug-log"><div>[System Log v6.85 - QR Restored]</div></div>
+<div id="debug-log"><div>[System Log v6.86 - Offline QR Patch]</div></div>
 
 <div class="top-bar">
-  <strong>指示書作成コックピット v6.85</strong>
+  <strong>指示書作成コックピット v6.86</strong>
   <div id="status-display">Syncing...</div>
 </div>
 
@@ -54,7 +56,7 @@
       <span style="font-size:12px;">手配No :</span><br>
       <input type="text" id="main-order-no" placeholder="Enterで検索">
     </div>
-    <img id="qr-image" src="" alt="QRコード">
+    <div id="qr-container"><canvas id="qrcode"></canvas></div>
   </div>
 
   <table class="preview-table">
@@ -87,14 +89,16 @@ let master = { existingNos: {} };
 let masterProcs = [];
 let currentIdx = 0;
 
-// QRコードを生成する中心関数
+// QRコード生成：外部APIに頼らずライブラリで描画
 function updateQR(val) {
-  const qrImg = document.getElementById('qr-image');
+  const canvas = document.getElementById('qrcode');
   if (val) {
-    // Google Chart APIを使用してQR画像を生成
-    qrImg.src = `https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=${encodeURIComponent(val)}&choe=UTF-8`;
+    QRCode.toCanvas(canvas, val, { width: 100, margin: 2 }, function (error) {
+      if (error) log("QR生成エラー: " + error);
+    });
   } else {
-    qrImg.src = "";
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 }
 
@@ -113,7 +117,7 @@ async function fetchMaster() {
     updateCockpit();
     log("同期完了");
     document.getElementById('status-display').innerText = "Ready";
-  } catch (e) { log("初期通信に失敗しました。"); }
+  } catch (e) { log("通信エラー"); }
 }
 
 function initUI() {
@@ -135,7 +139,6 @@ function initUI() {
   });
 }
 
-// 手配No入力時にQRコードを更新
 document.getElementById('main-order-no').addEventListener('input', function() {
   updateQR(this.value.trim());
 });
@@ -145,7 +148,7 @@ document.getElementById('main-order-no').addEventListener('keydown', async funct
     const val = this.value.trim();
     if (!val) return;
     clearPreview();
-    updateQR(val); // Enter時にもQR更新を確定
+    updateQR(val);
     const rangeInfo = master.existingNos[val];
     if (rangeInfo) {
       log(`読込開始: ${val}`);
@@ -160,7 +163,6 @@ document.getElementById('main-order-no').addEventListener('keydown', async funct
           }
         });
         updateCockpit();
-        log("過去データを展開しました。");
       } catch (err) { log("読込エラー"); }
     }
   }
@@ -216,13 +218,11 @@ function clearPreview() {
 async function saveAndPrint() {
   const orderNo = document.getElementById('main-order-no').value.trim();
   if (!orderNo) return alert("手配No未入力");
-  
   let payload = [];
   masterProcs.forEach((name, i) => {
     const d = editData[i];
     if (d.order || d.st || d.limit) payload.push([name, d.order, d.st, d.limit]);
   });
-  
   log("保存中...");
   try {
     const url = `${GAS_URL}?method=saveOnly&orderNo=${encodeURIComponent(orderNo)}&allData=${encodeURIComponent(JSON.stringify(payload))}`;
@@ -233,7 +233,7 @@ async function saveAndPrint() {
       log("保存完了。印刷します。");
       window.print();
     }
-  } catch(e) { log("保存通信に失敗しました。"); }
+  } catch(e) { log("保存失敗"); }
 }
 
 function log(m) { 
