@@ -140,20 +140,21 @@ function clearPreview() {
 }
 
 async function saveAndPrint() {
-  const orderNo = document.getElementById('main-order-no').value.trim();
-  let payload = [];
-  FIXED_PROCS.forEach((p, i) => {
-    const d = editData[i];
-    if (d.order || d.st || d.limit) payload.push([d.name, d.order, d.st, d.limit]);
-  });
-  log("保存中...");
+  // ... (前略) ...
   try {
-    const res = await fetch(`${GAS_URL}?method=saveOnly&orderNo=${encodeURIComponent(orderNo)}&allData=${encodeURIComponent(JSON.stringify(payload))}`);
-    if ((await res.json()) === "保存成功") {
-      log("保存成功！印刷を開始します。");
+    const res = await fetch(`${GAS_URL}?method=saveOnly&...`);
+    const result = await res.json(); // ここでオブジェクトとして受け取る
+    
+    if (result.status === "保存成功") {
+      // メモリ上の「地図」を最新に更新（これで次の検索も爆速かつ正確になる）
+      master.existingNos = result.newIndex;
+      
+      log("保存とインデックス更新が完了しました。");
       window.print();
+    } else {
+      log("エラー: " + result.message);
     }
-  } catch(e) { log("保存失敗"); }
+  } catch(e) { log("通信エラー"); }
 }
 </script>
 </body>
