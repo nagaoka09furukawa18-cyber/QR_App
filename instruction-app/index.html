@@ -2,168 +2,118 @@
 <html>
 <head>
   <base target="_top">
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <style>
-    body { font-family: "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 10px; background: #e9ecef; }
-    #debug-log { background: #000; color: #0f0; font-family: monospace; font-size: 11px; padding: 10px; margin-bottom: 10px; border-radius: 4px; max-height: 180px; overflow-y: auto; border: 2px solid #555; }
-    .top-bar { background: #343a40; color: white; padding: 10px 20px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-    #preview-container { background: white; padding: 20px; border: 1px solid #ccc; margin-bottom: 15px; width: calc(100% - 42px); box-sizing: border-box; overflow-x: auto; }
-    .order-input-group { display: flex; align-items: center; font-size: 28px; font-weight: bold; margin-bottom: 10px; }
-    #main-order-no { font-size: 28px; font-weight: bold; border: 2px solid #007bff; border-radius: 6px; padding: 2px 10px; width: 300px; margin-left: 10px; background: #fffde7; }
-    table.preview-table { border-collapse: collapse; width: 100%; min-width: 1100px; table-layout: fixed; }
-    .preview-table th, .preview-table td { border: 1px solid #000; font-size: 10px; text-align: center; height: 35px; }
-    .preview-table th { background: #f2f2f2; }
-    #main-controls { background: white; padding: 15px; border-radius: 8px; border-top: 5px solid #007bff; }
-    .disabled-overlay { opacity: 0.2; pointer-events: none; filter: grayscale(1); }
-    #button-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; }
-    .proc-btn { padding: 8px 12px; font-size: 13px; font-weight: bold; cursor: pointer; border: 1px solid #adb5bd; background: #fff; border-radius: 4px; }
+    body { font-family: sans-serif; margin: 0; padding: 10px; background: #e9ecef; }
+    #debug-log { background: #000; color: #0f0; font-family: monospace; font-size: 11px; padding: 10px; margin-bottom: 10px; height: 100px; overflow-y: auto; }
+    .top-bar { background: #343a40; color: white; padding: 10px 20px; display: flex; justify-content: space-between; }
+    #preview-container { background: white; padding: 20px; border: 1px solid #ccc; margin-bottom: 15px; overflow-x: auto; }
+    #main-order-no { font-size: 28px; font-weight: bold; border: 2px solid #007bff; background: #fffde7; padding: 5px; width: 300px; }
+    table.preview-table { border-collapse: collapse; width: 100%; min-width: 1000px; }
+    .preview-table th, .preview-table td { border: 1px solid #000; font-size: 11px; text-align: center; height: 35px; }
+    #main-controls { background: white; padding: 15px; border-top: 5px solid #007bff; }
+    .proc-btn { padding: 10px; margin: 2px; cursor: pointer; border: 1px solid #ccc; background: #fff; font-weight: bold; }
     .proc-btn.active { background: #007bff; color: white; }
-    .input-card { border: 1px solid #007bff; padding: 20px; border-radius: 8px; width: 400px; }
-    .save-btn { padding: 20px 40px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 20px; }
-    @media print { #debug-log, .top-bar, #main-controls { display: none !important; } }
+    .save-btn { padding: 15px 30px; background: #28a745; color: white; border: none; font-size: 20px; cursor: pointer; }
+    @media print { .top-bar, #main-controls, #debug-log { display: none !important; } }
   </style>
 </head>
 <body>
 
-<div id="debug-log"><div>[System Debug Log v6.75]</div></div>
+<div id="debug-log"><div>[System Log v6.77]</div></div>
 
 <div class="top-bar">
-  <strong>指示書作成コックピット v6.75</strong>
-  <div id="status-display" style="font-size: 12px; color: #00ff00;">Ready</div>
+  <strong>指示書作成コックピット v6.77</strong>
+  <div id="status-display">Ready</div>
 </div>
 
 <div id="preview-container">
-  <div class="order-input-group">手配No : <input type="text" id="main-order-no"></div>
+  <div style="margin-bottom:10px;">手配No : <input type="text" id="main-order-no"></div>
   <table class="preview-table">
     <thead id="thr-proc"><tr><th style="width:80px;">工程</th></tr></thead>
-    <tbody>
-      <tr id="tr-order"><th>指示順</th></tr>
-      <tr id="tr-st"><th>ST</th></tr>
-      <tr id="tr-limit"><th>納期</th></tr>
-    </tbody>
+    <tr id="tr-order"><th>指示順</th></tr>
+    <tr id="tr-st"><th>ST</th></tr>
+    <tr id="tr-limit"><th>納期</th></tr>
   </table>
 </div>
 
-<div id="main-controls" class="disabled-overlay">
+<div id="main-controls">
   <div id="button-grid"></div>
-  <div style="display:flex; justify-content:space-between; align-items:flex-end;">
-    <div class="input-card">
-      <div id="target-proc-name" style="font-size:20px; font-weight:bold; color:#007bff; margin-bottom:15px;">工程選択</div>
-      <div style="display:grid; grid-template-columns: 80px 1fr; gap: 10px;">
-        <label>指示順</label><input type="number" id="inp-order" oninput="sync()">
-        <label>ST</label><input type="number" id="inp-st" oninput="sync()">
-        <label>納期</label><input type="date" id="inp-limit" oninput="sync()">
-      </div>
+  <div style="display:flex; justify-content:space-between; margin-top:15px;">
+    <div style="border:1px solid #007bff; padding:15px; border-radius:5px;">
+      <div id="target-proc-name" style="font-weight:bold; color:#007bff; margin-bottom:10px;">工程選択</div>
+      指示順: <input type="number" id="inp-order" oninput="sync()"><br>
+      ST: <input type="number" id="inp-st" oninput="sync()"><br>
+      納期: <input type="date" id="inp-limit" oninput="sync()">
     </div>
-    <button class="save-btn" onclick="saveAndPrint()">保存 ＆ 指示書発行</button>
+    <button class="save-btn" onclick="saveAndPrint()">保存 ＆ 印刷</button>
   </div>
 </div>
 
 <script>
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyQ8KW8Z8bPXIu-piVjydNI-na8gBygz1UVCrvGjFRdpJ-NPoj2fk14bzkv62AY4r8T/exec";
-let master = { processes: [], existingNos: {} };
-let editData = {}; 
+// 工程リストをHTML側で固定定義（通信を削減）
+const FIXED_PROCS = ["LA", "MM", "VM", "HT", "SG1", "SG2", "W/C", "組付", "検査", "出荷"]; 
+let editData = {};
 let currentProcIdx = -1;
 
-function log(msg) {
-  const logEl = document.getElementById('debug-log');
-  logEl.innerHTML += `<div>> ${msg}</div>`;
-  logEl.scrollTop = logEl.scrollHeight;
-}
+function log(m) { document.getElementById('debug-log').innerHTML += `<div>> ${m}</div>`; }
 
 window.onload = () => {
   const thr = document.getElementById('thr-proc').rows[0];
   const trO = document.getElementById('tr-order');
   const trS = document.getElementById('tr-st');
   const trL = document.getElementById('tr-limit');
-  for(let i=0; i<21; i++) {
-    thr.innerHTML += `<th id="h-n-${i}">-</th>`;
+  const grid = document.getElementById('button-grid');
+
+  FIXED_PROCS.forEach((proc, i) => {
+    thr.innerHTML += `<th>${proc}</th>`;
     trO.innerHTML += `<td id="d-o-${i}"></td>`;
     trS.innerHTML += `<td id="d-s-${i}"></td>`;
     trL.innerHTML += `<td id="d-l-${i}"></td>`;
-    editData[i] = { name: "-", order: "", st: "", limit: "" };
-  }
-  fetchMaster();
-};
-
-async function fetchMaster() {
-  log("getMasters 呼び出し中...");
-  try {
-    const res = await fetch(`${GAS_URL}?method=getMasters`);
-    master = await res.json();
     
-    // インデックス情報の詳細ログ
-    const keys = Object.keys(master.existingNos || {});
-    log(`受信工程数: ${master.processes.length}`);
-    log(`受信手配No数: ${keys.length}`);
-    if(keys.length > 0) log(`インデックス例: ${keys.slice(0,3).join(', ')}...`);
-    
-    updateUIWithMaster();
-    document.getElementById('status-display').innerText = "Ready";
-    document.getElementById('main-order-no').focus();
-  } catch (e) { log(`初期化エラー: ${e}`); }
-}
-
-function updateUIWithMaster() {
-  const grid = document.getElementById('button-grid');
-  grid.innerHTML = '';
-  master.processes.forEach((proc, i) => {
-    document.getElementById(`h-n-${i}`).innerText = proc;
     const btn = document.createElement('button');
     btn.className = 'proc-btn'; btn.innerText = proc;
     btn.onclick = () => selectProc(i);
     grid.appendChild(btn);
+    
     editData[i] = { name: proc, order: "", st: "", limit: "" };
   });
-}
+  log("UI初期化完了。手配Noを入力してください。");
+};
 
 document.getElementById('main-order-no').addEventListener('keydown', async function(e) {
   if (e.key === 'Enter') {
     const val = this.value.trim();
     if (!val) return;
-    log(`--- 手配No入力: ${val} ---`);
-    clearPreview(); 
+    log(`手配No [${val}] を T_工程詳細 から検索中...`);
+    clearPreview();
 
-    // メモリ上の完全一致判定
-    const exists = master.existingNos && master.existingNos.hasOwnProperty(val);
-    log(`メモリ内検索結果: ${exists ? "一致あり" : "一致なし"}`);
-
-    if (exists) {
-      log("GASへ詳細データ(getExistingOrder)を請求...");
-      try {
-        const res = await fetch(`${GAS_URL}?method=getExistingOrder&orderNo=${encodeURIComponent(val)}`);
-        const rows = await res.json();
-        log(`データ取得成功: ${rows.length}件の工程情報を発見`);
-        restoreData(rows); 
-      } catch (err) { log(`詳細取得エラー: ${err}`); }
-    } else {
-      log("新規データとして入力を開始します。");
-    }
-    document.getElementById('main-controls').classList.remove('disabled-overlay');
-    if (currentProcIdx === -1) selectProc(0);
+    try {
+      // GAS側の getExistingOrder は直接 T_工程詳細 を見に行くようにしてください
+      const res = await fetch(`${GAS_URL}?method=getExistingOrder&orderNo=${encodeURIComponent(val)}`);
+      const rows = await res.json();
+      log(`検索結果: ${rows.length} 件見つかりました`);
+      
+      if (rows.length > 0) {
+        rows.forEach(row => {
+          const idx = FIXED_PROCS.indexOf(row[0]);
+          if (idx !== -1) {
+            editData[idx] = { name: row[0], order: row[1], st: row[2], limit: row[3] ? row[3].split('T')[0] : "" };
+            document.getElementById(`d-o-${idx}`).innerText = editData[idx].order;
+            document.getElementById(`d-s-${idx}`).innerText = editData[idx].st;
+            document.getElementById(`d-l-${idx}`).innerText = editData[idx].limit ? editData[idx].limit.split('-').slice(1).join('/') : "";
+          }
+        });
+        log("プレビューに反映しました。");
+      }
+    } catch (err) { log("検索エラーまたはデータなし"); }
   }
 });
-
-function restoreData(rows) {
-  rows.forEach(row => {
-    const pName = row[0];
-    const idx = master.processes.indexOf(pName);
-    if (idx !== -1) {
-      editData[idx].order = row[1] || "";
-      editData[idx].st = row[2] || "";
-      editData[idx].limit = row[3] ? row[3].split('T')[0] : "";
-      
-      document.getElementById(`d-o-${idx}`).innerText = editData[idx].order;
-      document.getElementById(`d-s-${idx}`).innerText = editData[idx].st;
-      document.getElementById(`d-l-${idx}`).innerText = editData[idx].limit ? editData[idx].limit.split('-').slice(1).join('/') : "";
-    }
-  });
-}
 
 function selectProc(idx) {
   currentProcIdx = idx;
   document.querySelectorAll('.proc-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
-  document.getElementById('target-proc-name').innerText = editData[idx].name;
+  document.getElementById('target-proc-name').innerText = FIXED_PROCS[idx];
   document.getElementById('inp-order').value = editData[idx].order;
   document.getElementById('inp-st').value = editData[idx].st;
   document.getElementById('inp-limit').value = editData[idx].limit;
@@ -181,8 +131,8 @@ function sync() {
 }
 
 function clearPreview() {
-  Object.keys(editData).forEach(i => {
-    editData[i].order = ""; editData[i].st = ""; editData[i].limit = "";
+  FIXED_PROCS.forEach((p, i) => {
+    editData[i] = { name: p, order: "", st: "", limit: "" };
     document.getElementById(`d-o-${i}`).innerText = "";
     document.getElementById(`d-s-${i}`).innerText = "";
     document.getElementById(`d-l-${i}`).innerText = "";
@@ -191,19 +141,19 @@ function clearPreview() {
 
 async function saveAndPrint() {
   const orderNo = document.getElementById('main-order-no').value.trim();
-  if (!orderNo) return;
   let payload = [];
-  Object.keys(editData).forEach(idx => {
-    const d = editData[idx];
+  FIXED_PROCS.forEach((p, i) => {
+    const d = editData[i];
     if (d.order || d.st || d.limit) payload.push([d.name, d.order, d.st, d.limit]);
   });
+  log("保存中...");
   try {
     const res = await fetch(`${GAS_URL}?method=saveOnly&orderNo=${encodeURIComponent(orderNo)}&allData=${encodeURIComponent(JSON.stringify(payload))}`);
     if ((await res.json()) === "保存成功") {
-      master.existingNos[orderNo] = true;
+      log("保存成功！印刷を開始します。");
       window.print();
     }
-  } catch(e) { log(`保存エラー: ${e}`); }
+  } catch(e) { log("保存失敗"); }
 }
 </script>
 </body>
