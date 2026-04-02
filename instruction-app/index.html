@@ -6,52 +6,46 @@
   <style>
     body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 10px; background: #e9ecef; color: #333; }
     
-    /* ロード画面 */
     #loading-screen {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: #343a40; color: white;
       display: flex; flex-direction: column; justify-content: center; align-items: center;
       z-index: 9999; font-size: 24px;
     }
-    .spinner {
-      width: 50px; height: 50px; border: 5px solid rgba(255,255,255,0.3);
-      border-top: 5px solid #fff; border-radius: 50%;
-      animation: spin 1s linear infinite; margin-bottom: 20px;
-    }
+    .spinner { width: 50px; height: 50px; border: 5px solid rgba(255,255,255,0.3); border-top: 5px solid #fff; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
     #main-content { display: none; max-width: 1200px; margin: 0 auto; }
 
-    /* ログとヘッダー */
     #debug-log { background: #000; color: #0f0; font-family: monospace; font-size: 11px; padding: 10px; margin-bottom: 10px; height: 80px; overflow-y: auto; border-radius: 4px; }
+    .log-err { color: #ff6b6b !important; font-weight: bold; }
+    
     .top-bar { background: #343a40; color: white; padding: 8px 20px; display: flex; justify-content: space-between; align-items: center; border-radius: 4px 4px 0 0; }
     #status-display { padding: 2px 10px; border-radius: 4px; font-weight: bold; font-size: 14px; }
     .status-ok { background: #28a745; }
     .status-wait { background: #ffc107; color: #000; }
 
-    /* プレビューエリア（純粋な表示用） */
+    /* プレビューエリア */
     #print-area { background: white; padding: 20px; border: 1px solid #ccc; margin-bottom: 10px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-    .preview-label { font-size: 12px; color: #666; font-weight: bold; }
-    .display-order-no { font-size: 32px; font-weight: bold; color: #000; min-height: 40px; }
+    .display-order-no { font-size: 28px; font-weight: bold; color: #000; }
     #qr-container canvas { width: 110px !important; height: 110px !important; border: 1px solid #eee; }
 
     table.preview-table { table-layout: fixed; border-collapse: collapse; width: 100%; }
-    .preview-table th, .preview-table td { border: 1px solid #000 !important; font-size: 11px; text-align: center; height: 32px; overflow: hidden; white-space: nowrap; }
+    .preview-table th, .preview-table td { border: 1px solid #000 !important; font-size: 11px; text-align: center; height: 32px; overflow: hidden; white-space: nowrap; transition: background 0.2s; }
     .preview-table th { background: #f1f3f5; font-weight: bold; }
     .preview-table th:first-child { width: 70px; }
 
-    /* センター・コントロール（入力の要） */
-    .center-input-bar { 
-      background: #fff; padding: 15px; border: 2px solid #007bff; border-radius: 8px;
-      display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 10px;
-      box-shadow: 0 4px 15px rgba(0,123,255,0.1);
-    }
-    .order-input-group { text-align: center; }
-    #main-order-no { font-size: 26px; font-weight: bold; border: 1px solid #ccc; padding: 8px 15px; width: 280px; text-align: center; border-radius: 4px; background: #fffde7; }
-    #main-order-no:focus { border-color: #007bff; outline: none; box-shadow: 0 0 8px rgba(0,123,255,0.3); }
+    /* ハイライト設定 */
+    .active-cell { background: #e7f3ff !important; border: 2.5px solid #007bff !important; }
+    .error-input { background: #ffdce0 !important; border: 2px solid #ff4d4f !important; }
 
-    /* 操作パネル（コックピット） */
+    .center-input-bar { 
+      background: #fff; padding: 12px; border: 2px solid #007bff; border-radius: 8px;
+      display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 10px;
+    }
+    #main-order-no { font-size: 24px; font-weight: bold; border: 1px solid #ccc; padding: 5px 15px; width: 280px; text-align: center; border-radius: 4px; background: #fffde7; }
+
     #main-controls { background: #f8f9fa; padding: 15px; border: 1px solid #ddd; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
     .proc-nav { display: flex; align-items: center; gap: 10px; }
     #target-proc-name { font-weight: bold; color: #007bff; font-size: 22px; min-width: 140px; text-align: center; border-bottom: 3px solid #007bff; }
@@ -61,42 +55,28 @@
     .inp-sml { width: 60px; }
     .inp-med { width: 80px; }
 
-    .save-btn { padding: 12px 35px; background: #28a745; color: white; border: none; font-size: 20px; cursor: pointer; font-weight: bold; border-radius: 6px; transition: 0.2s; box-shadow: 0 4px #1e7e34; }
-    .save-btn:hover { background: #218838; }
+    .save-btn { padding: 12px 35px; background: #28a745; color: white; border: none; font-size: 20px; cursor: pointer; font-weight: bold; border-radius: 6px; box-shadow: 0 4px #1e7e34; }
     .save-btn:active { box-shadow: 0 1px #1e7e34; transform: translateY(3px); }
     .nav-btn { padding: 8px 18px; font-size: 22px; cursor: pointer; background: #fff; border: 1px solid #007bff; color: #007bff; border-radius: 6px; }
-    .nav-btn:hover { background: #007bff; color: #fff; }
 
     @media print {
       @page { size: landscape; margin: 10mm; }
       #loading-screen, .top-bar, .center-input-bar, #main-controls, #debug-log, #status-display { display: none !important; }
-      #main-content { display: block !important; }
       #print-area { border: none; padding: 0; box-shadow: none; }
-      .display-order-no { border: none; }
     }
   </style>
 </head>
 <body>
 
-<div id="loading-screen">
-  <div class="spinner"></div>
-  <div>システム起動中...</div>
-</div>
+<div id="loading-screen"><div class="spinner"></div><div>システム起動中...</div></div>
 
 <div id="main-content">
-  <div id="debug-log"><div>[System Log v6.89 - Ergonomic Layout]</div></div>
-
-  <div class="top-bar">
-    <strong>指示書作成コックピット v6.89</strong>
-    <div id="status-display" class="status-ok">Ready</div>
-  </div>
+  <div id="debug-log"><div>[System Log v6.91 - Instant Validation]</div></div>
+  <div class="top-bar"><strong>指示書作成コックピット v6.91</strong><div id="status-display" class="status-ok">Ready</div></div>
 
   <div id="print-area">
     <div class="header-flex">
-      <div>
-        <div class="preview-label">手配No :</div>
-        <div id="display-no-val" class="display-order-no">---</div>
-      </div>
+      <div class="display-order-no">手配No：<span id="display-no-val">---</span></div>
       <div id="qr-container"><canvas id="qrcode"></canvas></div>
     </div>
     <table class="preview-table">
@@ -108,10 +88,8 @@
   </div>
 
   <div class="center-input-bar">
-    <div class="order-input-group">
-      <div style="font-size: 13px; color: #007bff; font-weight: bold; margin-bottom: 5px;">▼ 手配Noを入力して開始</div>
-      <input type="text" id="main-order-no" placeholder="手配Noをスキャン/入力" autocomplete="off">
-    </div>
+    <div style="font-size: 14px; font-weight: bold; color: #007bff;">手配No：</div>
+    <input type="text" id="main-order-no" placeholder="スキャンまたは入力" autocomplete="off">
   </div>
 
   <div id="main-controls">
@@ -120,13 +98,11 @@
       <div id="target-proc-name">---</div>
       <button type="button" class="nav-btn" onclick="moveProc(1)">▷</button>
     </div>
-
     <div class="detail-inputs">
-      指示順: <input type="number" id="inp-order" class="inp-sml" oninput="sync()" onkeydown="handleEnter(event, 'inp-st')">
-      ST: <input type="number" id="inp-st" class="inp-med" oninput="sync()" onkeydown="handleEnter(event, 'inp-limit')">
-      納期: <input type="date" id="inp-limit" oninput="sync()" onchange="autoNext()" onclick="this.showPicker()">
+      順: <input type="number" id="inp-order" class="inp-sml" oninput="sync()" onfocus="setHighlight('o')" onkeydown="handleEnter(event, 'inp-st')">
+      ST: <input type="number" id="inp-st" class="inp-med" oninput="sync()" onfocus="setHighlight('s')" onkeydown="handleEnter(event, 'inp-limit')">
+      納期: <input type="date" id="inp-limit" oninput="sync()" onfocus="setHighlight('l')" onchange="autoNext()" onclick="this.showPicker()">
     </div>
-
     <button id="save-btn" class="save-btn" onclick="saveAndPrint()">保存 ＆ 印刷</button>
   </div>
 </div>
@@ -162,16 +138,11 @@ async function fetchMaster() {
     document.getElementById('loading-screen').style.display = 'none';
     document.getElementById('main-content').style.display = 'block';
     document.getElementById('main-order-no').focus();
-  } catch (e) {
-    document.getElementById('loading-screen').innerHTML = "通信エラー。再読み込みしてください。";
-  }
+  } catch (e) { document.getElementById('loading-screen').innerHTML = "通信エラー"; }
 }
 
 function initUI() {
-  const trH = document.getElementById('tr-head');
-  const trO = document.getElementById('tr-order');
-  const trS = document.getElementById('tr-st');
-  const trL = document.getElementById('tr-limit');
+  const trH = document.getElementById('tr-head'), trO = document.getElementById('tr-order'), trS = document.getElementById('tr-st'), trL = document.getElementById('tr-limit');
   trH.innerHTML = '<th>工程</th>'; trO.innerHTML = '<th>指示順</th>'; trS.innerHTML = '<th>ST</th>'; trL.innerHTML = '<th>納期</th>';
   masterProcs.forEach((proc, i) => {
     trH.innerHTML += `<th>${proc}</th>`;
@@ -182,22 +153,22 @@ function initUI() {
   });
 }
 
-// 手配No入力時の挙動
-document.getElementById('main-order-no').addEventListener('input', function() {
-  updateQR(this.value.trim());
-});
+function setHighlight(type) {
+  document.querySelectorAll('.preview-table td').forEach(td => td.classList.remove('active-cell'));
+  const cell = document.getElementById(`d-${type}-${currentIdx}`);
+  if (cell) cell.classList.add('active-cell');
+}
 
+document.getElementById('main-order-no').addEventListener('input', function() { updateQR(this.value.trim()); });
 document.getElementById('main-order-no').addEventListener('keydown', async function(e) {
   if (e.key === 'Enter') {
     const val = this.value.trim();
     if (!val) return;
     clearPreview();
     updateQR(val);
-    const rangeInfo = master.existingNos[val];
-    if (rangeInfo) {
-      log(`データ読込中: ${val}`);
+    if (master.existingNos[val]) {
       try {
-        const res = await fetch(`${GAS_URL}?method=getExistingOrder&range=${JSON.stringify(rangeInfo)}`);
+        const res = await fetch(`${GAS_URL}?method=getExistingOrder&range=${JSON.stringify(master.existingNos[val])}`);
         const rows = await res.json();
         rows.forEach(row => {
           const idx = masterProcs.indexOf(row[0]);
@@ -207,26 +178,28 @@ document.getElementById('main-order-no').addEventListener('keydown', async funct
           }
         });
         updateCockpit();
-        document.getElementById('inp-order').focus(); // 読み込み後、入力欄へフォーカス移動
       } catch (err) { log("読込エラー"); }
-    } else {
-      document.getElementById('inp-order').focus(); // 新規でも入力欄へ
     }
+    document.getElementById('inp-order').focus();
   }
 });
 
 function moveProc(step) {
   currentIdx = (currentIdx + step + masterProcs.length) % masterProcs.length;
   updateCockpit();
+  const focused = document.activeElement;
+  if(focused.id.startsWith('inp-')) setHighlight(focused.id.split('-')[1]);
 }
 
 function updateCockpit() {
-  if (masterProcs.length === 0) return;
   const d = editData[currentIdx];
   document.getElementById('target-proc-name').innerText = d.name;
   document.getElementById('inp-order').value = d.order;
   document.getElementById('inp-st').value = d.st;
   document.getElementById('inp-limit').value = d.limit;
+  
+  // コックピット更新時にエラー状態も再確認
+  validateRealtime();
 }
 
 function sync() {
@@ -235,15 +208,57 @@ function sync() {
   d.st = document.getElementById('inp-st').value;
   d.limit = document.getElementById('inp-limit').value;
   updatePreviewCell(currentIdx);
+  validateRealtime();
 }
 
-// カレンダー入力完了時に自動で次工程へ
+// 【即時実行】重複・逆転チェック
+function validateRealtime() {
+  let orders = {}, errors = [];
+  const inpOrder = document.getElementById('inp-order');
+  inpOrder.classList.remove('error-input');
+
+  // 指示順の重複をオブジェクトで管理して詳細に特定
+  Object.keys(editData).forEach(idx => {
+    const val = editData[idx].order;
+    if (val) {
+      if (!orders[val]) orders[val] = [];
+      orders[val].push(editData[idx].name);
+    }
+  });
+
+  // 重複箇所の特定とUI反映
+  Object.keys(orders).forEach(num => {
+    if (orders[num].length > 1) {
+      errors.push(`指示順 [${num}] が重複：${orders[num].join(', ')}`);
+      // 現在入力中の番号が重複していたら入力欄を赤くする
+      if (editData[currentIdx].order === num) inpOrder.classList.add('error-input');
+    }
+  });
+
+  // 納期逆転チェック
+  let activeItems = Object.values(editData).filter(d => d.order && d.limit).sort((a,b) => a.order - b.order);
+  for(let i=0; i<activeItems.length-1; i++) {
+    if(activeItems[i].limit > activeItems[i+1].limit) {
+      errors.push(`納期逆転：${activeItems[i].name}(${activeItems[i].limit}) ＞ ${activeItems[i+1].name}(${activeItems[i+1].limit})`);
+    }
+  }
+
+  // ログ更新
+  const logDiv = document.getElementById('debug-log');
+  document.querySelectorAll('.log-warn-msg').forEach(e => e.remove());
+  errors.forEach(err => {
+    const div = document.createElement('div');
+    div.className = 'log-err log-warn-msg';
+    div.innerText = "! " + err;
+    logDiv.appendChild(div);
+  });
+  if (errors.length > 0) logDiv.scrollTop = logDiv.scrollHeight;
+  
+  return errors.length === 0;
+}
+
 function autoNext() {
-  log(`${editData[currentIdx].name} 確定`);
-  setTimeout(() => {
-    moveProc(1);
-    document.getElementById('inp-order').focus();
-  }, 100); // 選択の余韻のためのわずかなディレイ
+  setTimeout(() => { moveProc(1); document.getElementById('inp-order').focus(); }, 100);
 }
 
 function updatePreviewCell(idx) {
@@ -264,15 +279,15 @@ function handleEnter(e, nextId) {
 function clearPreview() {
   masterProcs.forEach((p, i) => {
     editData[i] = { name: p, order: "", st: "", limit: "" };
-    document.getElementById(`d-o-${i}`).innerText = "";
-    document.getElementById(`d-s-${i}`).innerText = "";
-    document.getElementById(`d-l-${i}`).innerText = "";
+    updatePreviewCell(i);
   });
 }
 
 async function saveAndPrint() {
+  if (!validateRealtime()) return alert("入力エラーを修正してください（ログ参照）");
   const orderNo = document.getElementById('main-order-no').value.trim();
   if (!orderNo) return alert("手配No未入力");
+
   let payload = [];
   masterProcs.forEach((name, i) => {
     const d = editData[i];
@@ -281,7 +296,6 @@ async function saveAndPrint() {
 
   setStatus("Saving...", "status-wait");
   window.print();
-
   fetch(`${GAS_URL}?method=saveOnly&orderNo=${encodeURIComponent(orderNo)}&allData=${encodeURIComponent(JSON.stringify(payload))}`)
     .then(res => res.json())
     .then(result => {
@@ -290,7 +304,7 @@ async function saveAndPrint() {
         setStatus("Ready", "status-ok");
         log("Background Save OK");
       }
-    }).catch(e => { setStatus("Error", "status-wait"); });
+    }).catch(() => setStatus("Error", "status-wait"));
 }
 
 function setStatus(txt, cls) {
