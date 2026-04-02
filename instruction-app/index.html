@@ -4,91 +4,51 @@
   <base target="_top">
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <style>
-    /* 基本レイアウト */
     body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 10px; background: #e9ecef; color: #333; }
-    
-    /* ローディング画面 */
-    #loading-screen {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: #343a40; color: white;
-      display: flex; flex-direction: column; justify-content: center; align-items: center;
-      z-index: 9999; font-size: 24px;
-    }
-    .spinner {
-      width: 50px; height: 50px; border: 5px solid rgba(255,255,255,0.3);
-      border-top: 5px solid #fff; border-radius: 50%;
-      animation: spin 1s linear infinite; margin-bottom: 20px;
-    }
+    #loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #343a40; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; font-size: 24px; }
+    .spinner { width: 50px; height: 50px; border: 5px solid rgba(255,255,255,0.3); border-top: 5px solid #fff; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
     #main-content { display: none; max-width: 1200px; margin: 0 auto; }
-
-    /* ログ・ヘッダー */
     #debug-log { background: #000; color: #0f0; font-family: monospace; font-size: 11px; padding: 10px; margin-bottom: 10px; height: 80px; overflow-y: auto; border-radius: 4px; }
     .top-bar { background: #343a40; color: white; padding: 8px 20px; display: flex; justify-content: space-between; align-items: center; border-radius: 4px 4px 0 0; }
     #status-display { padding: 2px 10px; border-radius: 4px; font-weight: bold; font-size: 14px; }
     .status-ok { background: #28a745; }
     .status-wait { background: #ffc107; color: #000; }
-
-    /* プレビューエリア（純粋な表示用） */
     #print-area { background: white; padding: 20px; border: 1px solid #ccc; margin-bottom: 10px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
     .display-order-no { font-size: 28px; font-weight: bold; color: #000; }
     #qr-container canvas { width: 110px !important; height: 110px !important; border: 1px solid #eee; }
-
     table.preview-table { table-layout: fixed; border-collapse: collapse; width: 100%; }
-    .preview-table th, .preview-table td { border: 1px solid #000 !important; font-size: 11px; text-align: center; height: 32px; overflow: hidden; white-space: nowrap; transition: background 0.2s; }
+    .preview-table th, .preview-table td { border: 1px solid #000 !important; font-size: 11px; text-align: center; height: 32px; overflow: hidden; white-space: nowrap; }
     .preview-table th { background: #f1f3f5; font-weight: bold; }
     .preview-table th:first-child { width: 70px; }
-
-    /* 入力中ハイライト */
     .active-cell { background: #e7f3ff !important; border: 2.5px solid #007bff !important; }
-
-    /* センター・コントロール（手配No入力） */
-    .center-input-bar { 
-      background: #fff; padding: 12px; border: 2px solid #007bff; border-radius: 8px;
-      display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 10px;
-      box-shadow: 0 4px 15px rgba(0,123,255,0.1);
-    }
+    .center-input-bar { background: #fff; padding: 12px; border: 2px solid #007bff; border-radius: 8px; display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 10px; }
     #main-order-no { font-size: 24px; font-weight: bold; border: 1px solid #ccc; padding: 5px 15px; width: 280px; text-align: center; border-radius: 4px; background: #fffde7; }
-
-    /* コックピット（詳細入力） */
     #main-controls { background: #f8f9fa; padding: 15px; border: 1px solid #ddd; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
     .proc-nav { display: flex; align-items: center; gap: 10px; }
     #target-proc-name { font-weight: bold; color: #007bff; font-size: 22px; min-width: 140px; text-align: center; border-bottom: 3px solid #007bff; }
-    
     .detail-inputs { display: flex; gap: 15px; align-items: center; font-weight: bold; }
     .detail-inputs input { font-size: 18px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
     .inp-sml { width: 60px; }
     .inp-med { width: 80px; }
-
     .save-btn { padding: 12px 35px; background: #28a745; color: white; border: none; font-size: 20px; cursor: pointer; font-weight: bold; border-radius: 6px; box-shadow: 0 4px #1e7e34; }
-    .save-btn:active { box-shadow: 0 1px #1e7e34; transform: translateY(3px); }
     .nav-btn { padding: 8px 18px; font-size: 22px; cursor: pointer; background: #fff; border: 1px solid #007bff; color: #007bff; border-radius: 6px; }
 
     @media print {
       @page { size: landscape; margin: 10mm; }
       #loading-screen, .top-bar, .center-input-bar, #main-controls, #debug-log, #status-display { display: none !important; }
-      #main-content { display: block !important; }
       #print-area { border: none; padding: 0; box-shadow: none; }
     }
   </style>
 </head>
 <body>
 
-<div id="loading-screen">
-  <div class="spinner"></div>
-  <div>システム起動中...</div>
-  <div style="font-size: 14px; margin-top: 10px; color: #ccc;">マスターデータを読み込んでいます</div>
-</div>
+<div id="loading-screen"><div class="spinner"></div><div>システム同期中...</div></div>
 
 <div id="main-content">
-  <div id="debug-log"><div>[System Log v6.93 - Integrated Cockpit]</div></div>
-
-  <div class="top-bar">
-    <strong>指示書作成コックピット v6.93</strong>
-    <div id="status-display" class="status-ok">Ready</div>
-  </div>
+  <div id="debug-log"><div>[System Log v6.94 - Status Update & Fix]</div></div>
+  <div class="top-bar"><strong>指示書作成コックピット v6.94</strong><div id="status-display" class="status-ok">Ready</div></div>
 
   <div id="print-area">
     <div class="header-flex">
@@ -114,14 +74,12 @@
       <div id="target-proc-name">---</div>
       <button type="button" class="nav-btn" onclick="moveProc(1)">▷</button>
     </div>
-
     <div class="detail-inputs">
       順: <input type="number" id="inp-order" class="inp-sml" onchange="checkOrderDupe(this)" onfocus="setHighlight('o')" onkeydown="handleEnter(event, 'inp-st')">
       ST: <input type="number" id="inp-st" class="inp-med" oninput="sync()" onfocus="setHighlight('s')" onkeydown="handleEnter(event, 'inp-limit')">
-      納期: <input type="date" id="inp-limit" onchange="checkLimitSequence(this)" onfocus="setHighlight('l')" onclick="this.showPicker()">
+      納期: <input type="date" id="inp-limit" onchange="checkLimitSequence(this)" onfocus="setHighlight('l')" onkeydown="handleEnter(event, 'SAVE')" onclick="this.showPicker()">
     </div>
-
-    <button id="save-btn" class="save-btn" onclick="saveAndPrint()">保存 ＆ 印刷</button>
+    <button id="save-btn" class="save-btn" onclick="saveAndPrint('発行済')">保存 ＆ 印刷</button>
   </div>
 </div>
 
@@ -134,24 +92,18 @@ let currentIdx = 0;
 
 window.onload = () => { fetchMaster(); };
 
-// マスターデータ取得
 async function fetchMaster() {
   try {
     const res = await fetch(`${GAS_URL}?method=getMasters`);
     const data = await res.json();
     master.existingNos = data.existingNos || {};
     masterProcs = data.processes || [];
-    
     initUI();
     updateCockpit();
-    
     document.getElementById('loading-screen').style.display = 'none';
     document.getElementById('main-content').style.display = 'block';
     document.getElementById('main-order-no').focus();
-    log("システム同期完了。");
-  } catch (e) {
-    document.getElementById('loading-screen').innerHTML = "<div>通信エラーが発生しました。</div>";
-  }
+  } catch (e) { document.getElementById('loading-screen').innerHTML = "通信エラー"; }
 }
 
 function initUI() {
@@ -177,15 +129,12 @@ function updateQR(val) {
   }
 }
 
-// 手配No入力（Enterで検索）
 document.getElementById('main-order-no').addEventListener('keydown', async function(e) {
   if (e.key === 'Enter') {
     const val = this.value.trim();
     if (!val) return;
-    clearPreview();
-    updateQR(val);
+    clearPreview(); updateQR(val);
     if (master.existingNos[val]) {
-      log(`既存データ読込中: ${val}`);
       try {
         const res = await fetch(`${GAS_URL}?method=getExistingOrder&range=${JSON.stringify(master.existingNos[val])}`);
         const rows = await res.json();
@@ -203,24 +152,18 @@ document.getElementById('main-order-no').addEventListener('keydown', async funct
   }
 });
 
-// --- バリデーション & 制御ロジック ---
+// --- バリデーション機能 ---
 
 function checkOrderDupe(el) {
   const val = el.value.trim();
   if (!val) { sync(); return; }
-  
   let dupeProcName = "";
   Object.keys(editData).forEach(idx => {
-    if (parseInt(idx) !== currentIdx && editData[idx].order === val) {
-      dupeProcName = editData[idx].name;
-    }
+    if (parseInt(idx) !== currentIdx && editData[idx].order === val) dupeProcName = editData[idx].name;
   });
-
   if (dupeProcName) {
     alert(`指示順 [${val}] は「${dupeProcName}」と重複しています。修正してください。`);
-    el.value = ""; 
-    el.focus();
-    sync();
+    el.value = ""; el.focus(); sync();
   } else {
     sync();
   }
@@ -229,29 +172,23 @@ function checkOrderDupe(el) {
 function checkLimitSequence(el) {
   const newDate = el.value;
   if (!newDate) { sync(); return; }
-
   const curOrderStr = document.getElementById('inp-order').value;
   if (!curOrderStr) { sync(); autoNext(); return; }
-  
   const curOrder = parseInt(curOrderStr);
   let errorMsg = "";
-
   Object.values(editData).forEach(d => {
     if (!d.order || !d.limit || d.name === editData[currentIdx].name) return;
     const otherOrder = parseInt(d.order);
-    if (otherOrder < curOrder && d.limit > newDate) {
-      errorMsg = `納期が「${d.name}」(順:${otherOrder}) より早くなっています。修正してください。`;
-    }
-    if (otherOrder > curOrder && d.limit < newDate) {
-      errorMsg = `納期が「${d.name}」(順:${otherOrder}) より遅くなっています。修正してください。`;
-    }
+    if (otherOrder < curOrder && d.limit > newDate) errorMsg = `納期が「${d.name}」(順:${otherOrder}) より早くなっています。修正してください。`;
+    if (otherOrder > curOrder && d.limit < newDate) errorMsg = `納期が「${d.name}」(順:${otherOrder}) より遅くなっています。修正してください。`;
   });
 
   if (errorMsg) {
     alert(errorMsg);
     el.value = ""; 
-    el.focus();
     sync();
+    // ここがポイント：setTimeoutでフォーカスを戻し、showPickerを呼び出せる状態にする
+    setTimeout(() => { el.focus(); el.showPicker(); }, 10);
   } else {
     sync();
     autoNext();
@@ -267,10 +204,7 @@ function sync() {
 }
 
 function autoNext() {
-  setTimeout(() => {
-    moveProc(1);
-    document.getElementById('inp-order').focus();
-  }, 150);
+  setTimeout(() => { moveProc(1); document.getElementById('inp-order').focus(); }, 150);
 }
 
 function moveProc(step) {
@@ -284,9 +218,7 @@ function updateCockpit() {
   document.getElementById('inp-order').value = d.order;
   document.getElementById('inp-st').value = d.st;
   document.getElementById('inp-limit').value = d.limit;
-  
-  // ハイライト位置を「順」に合わせる
-  setHighlight('o');
+  setHighlight('o'); 
 }
 
 function setHighlight(type) {
@@ -305,8 +237,15 @@ function updatePreviewCell(idx) {
 function handleEnter(e, nextId) {
   if (e.key === 'Enter') {
     e.preventDefault();
+    if (nextId === 'SAVE') {
+      saveAndPrint('発行済');
+      return;
+    }
     const nextEl = document.getElementById(nextId);
-    if (nextEl) { nextEl.focus(); if (nextId === 'inp-limit') nextEl.showPicker(); }
+    if (nextEl) {
+      nextEl.focus();
+      if (nextId === 'inp-limit') nextEl.showPicker();
+    }
   }
 }
 
@@ -314,7 +253,8 @@ function clearPreview() {
   masterProcs.forEach((p, i) => { editData[i] = { name: p, order: "", st: "", limit: "" }; updatePreviewCell(i); });
 }
 
-async function saveAndPrint() {
+// ステータス（保存済/発行済）を引数に取るように変更
+async function saveAndPrint(statusValue) {
   const orderNo = document.getElementById('main-order-no').value.trim();
   if (!orderNo) return alert("手配No未入力");
 
@@ -325,14 +265,15 @@ async function saveAndPrint() {
   });
 
   setStatus("Saving...", "status-wait");
-  window.print();
+  if (statusValue === '発行済') window.print();
 
-  fetch(`${GAS_URL}?method=saveOnly&orderNo=${encodeURIComponent(orderNo)}&allData=${encodeURIComponent(JSON.stringify(payload))}`)
+  // GAS側にステータス情報を送る（引数 status を追加）
+  fetch(`${GAS_URL}?method=saveOnly&orderNo=${encodeURIComponent(orderNo)}&status=${encodeURIComponent(statusValue)}&allData=${encodeURIComponent(JSON.stringify(payload))}`)
     .then(res => res.json())
     .then(result => {
       master.existingNos = result.newIndex;
       setStatus("Ready", "status-ok");
-      log("保存成功");
+      log(`データ送信完了: [${statusValue}]`);
     }).catch(() => setStatus("Error", "status-wait"));
 }
 
