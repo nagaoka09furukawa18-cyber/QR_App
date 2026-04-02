@@ -1,84 +1,79 @@
 <!DOCTYPE html>
 <html>
 <head>
-<base target="_top">
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
-<style>
-body { font-family: "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 10px; background: #e9ecef; }
-.top-bar { display: flex; align-items: center; background: #343a40; color: white; padding: 10px 20px; border-radius: 8px; margin-bottom: 10px; }
-#display-order-no { font-size: 22px; font-weight: bold; color: #ffc107; cursor: pointer; text-decoration: underline; margin-left: 15px; }
+  <base target="_top">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+  <style>
+    /* 全体レイアウト：画像1枚目の広々とした構成を維持 */
+    body { font-family: "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 10px; background: #e9ecef; }
+    
+    /* 手配No入力モーダル：起動時に必ず入力を促す */
+    #order-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: white; padding: 50px; border-radius: 15px; text-align: center; }
+    .modal-content input { font-size: 32px; padding: 10px; width: 350px; text-align: center; border: 3px solid #007bff; border-radius: 10px; }
 
-/* プレビュー：画面幅いっぱい(100%)を使用 */
-#preview-container { background: white; padding: 20px; border: 1px solid #ccc; margin-bottom: 15px; width: calc(100% - 42px); }
-.preview-header { display: flex; align-items: center; gap: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-.order-no-title { font-size: 30px; font-weight: bold; }
+    .top-bar { display: flex; align-items: center; background: #343a40; color: white; padding: 10px 20px; border-radius: 8px; margin-bottom: 10px; }
+    #display-order-no { font-size: 22px; font-weight: bold; color: #ffc107; cursor: pointer; text-decoration: underline; margin-left: 15px; }
 
-table.preview-table { border-collapse: collapse; width: 100%; table-layout: fixed; margin-top: 15px; }
-.preview-table th, .preview-table td { border: 1px solid #000; font-size: 10px; text-align: center; height: 35px; }
-.preview-table th { background: #f2f2f2; font-size: 9px; }
-#qr-area canvas { width: 85px !important; height: 85px !important; }
+    /* プレビュー：画面横幅いっぱいに表示し、各工程の値を1列ずつ表示 */
+    #preview-container { background: white; padding: 20px; border: 1px solid #ccc; margin-bottom: 15px; min-height: 200px; }
+    .preview-header { display: flex; align-items: center; gap: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+    .order-no-title { font-size: 30px; font-weight: bold; }
+    
+    table.preview-table { border-collapse: collapse; width: 100%; table-layout: fixed; margin-top: 15px; }
+    .preview-table th, .preview-table td { border: 1px solid #000; font-size: 10px; text-align: center; height: 35px; overflow: hidden; }
+    .preview-table th { background: #f2f2f2; font-size: 9px; }
+    #qr-area canvas { width: 85px !important; height: 85px !important; }
 
-/* 工程ボタン：プレビューのすぐ下 */
-#button-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; }
-.proc-btn { padding: 8px 12px; font-size: 14px; font-weight: bold; cursor: pointer; border: 1px solid #adb5bd; background: #fff; border-radius: 4px; }
-.proc-btn.active { background: #007bff; color: white; border-color: #0056b3; }
+    /* 工程切替ボタン */
+    #button-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; }
+    .proc-btn { padding: 8px 12px; font-size: 14px; font-weight: bold; cursor: pointer; border: 1px solid #adb5bd; background: #fff; border-radius: 4px; }
+    .proc-btn.active { background: #007bff; color: white; border-color: #0056b3; }
 
-/* 下部管理エリア：ここを横並びにする */
-.bottom-management-area { display: flex; gap: 20px; margin-top: 10px; align-items: flex-start; }
+    /* 入力エリア：昨日までの使いやすいレイアウト */
+    .action-area { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin-bottom: 30px; }
+    #input-card { background: #fff; padding: 20px; border-radius: 8px; border: 2px solid #007bff; width: 450px; }
+    .card-header { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+    .nav-btn { font-size: 24px; cursor: pointer; background: #f8f9fa; border: 1px solid #ccc; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; }
+    .current-proc-title { font-size: 22px; font-weight: bold; color: #007bff; min-width: 140px; text-align: center; }
 
-/* 左：保存済みリスト（プレビューより下に配置し、プレビューを邪魔しない） */
-#side-list-panel { width: 300px; background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; flex-shrink: 0; }
-#order-list-container { max-height: 300px; overflow-y: auto; border: 1px solid #eee; margin-top: 10px; background: #fafafa; }
-.list-item { display: flex; align-items: center; padding: 8px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 13px; }
-.list-item:hover { background: #f0f7ff; }
-.status-badge { font-size: 10px; padding: 2px 5px; border-radius: 4px; margin-left: auto; font-weight: bold; }
-.status-unprinted { background: #ffeb3b; color: #856404; }
-.status-printed { background: #e0e0e0; color: #666; }
+    .vertical-inputs { display: flex; flex-direction: column; gap: 12px; }
+    .input-item { display: flex; align-items: center; width: 100%; }
+    .input-item label { font-size: 14px; font-weight: bold; width: 80px; flex-shrink: 0; }
+    .input-item input { font-size: 18px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 200px; }
+    #inp-limit { position: relative; padding-left: 40px; width: 160px; }
+    #inp-limit::-webkit-calendar-picker-indicator { position: absolute; left: 8px; cursor: pointer; }
 
-/* 右：入力・アクション */
-.action-area { flex-grow: 1; display: flex; flex-direction: column; gap: 15px; }
-#input-card { background: #fff; padding: 20px; border-radius: 8px; border: 2px solid #007bff; }
-.card-header { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-.nav-btn { font-size: 24px; cursor: pointer; background: #f8f9fa; border: 1px solid #ccc; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; }
-.current-proc-title { font-size: 22px; font-weight: bold; color: #007bff; min-width: 140px; text-align: center; }
+    .save-btn { padding: 20px 40px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 20px; }
 
-.vertical-inputs { display: flex; flex-wrap: wrap; gap: 15px; }
-.input-item { display: flex; align-items: center; }
-.input-item label { font-size: 14px; font-weight: bold; width: 60px; }
-.input-item input, .input-item select { font-size: 18px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 140px; }
+    /* 履歴リスト：最下部へ配置 */
+    hr { border: 0; border-top: 1px solid #ccc; margin: 20px 0; }
+    #history-panel { background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ccc; }
+    #order-list-container { max-height: 150px; overflow-y: auto; border: 1px solid #ddd; background: #fff; margin-top: 10px; }
+    .list-item { padding: 8px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between; }
+    .list-item:hover { background: #e7f3ff; }
 
-#inp-limit { position: relative; padding-left: 40px; }
-#inp-limit::-webkit-calendar-picker-indicator { position: absolute; left: 8px; cursor: pointer; }
-
-.save-btn-group { display: flex; gap: 15px; justify-content: flex-end; }
-.btn-save-only { padding: 15px 25px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
-.btn-save-print { padding: 15px 40px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 20px; }
-
-#order-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 1000; }
-.modal-content { background: white; padding: 50px; border-radius: 15px; text-align: center; }
-.modal-content input { font-size: 32px; padding: 10px; width: 350px; text-align: center; border: 3px solid #007bff; border-radius: 10px; }
-
-@media print {
-  .top-bar, #button-grid, .bottom-management-area, #order-modal, .nav-btn { display: none !important; }
-  #preview-container { border: none; padding: 0; width: 100%; margin: 0; }
-  body { background: white; padding: 0; }
-  @page { size: A4 landscape; margin: 10mm; }
-}
-</style>
+    @media print {
+      .top-bar, #button-grid, .action-area, #order-modal, .nav-btn, hr, #history-panel { display: none !important; }
+      #preview-container { border: none; padding: 0; }
+      body { background: white; padding: 0; }
+      @page { size: A4 landscape; margin: 10mm; }
+    }
+  </style>
 </head>
 <body>
 
 <div id="order-modal">
   <div class="modal-content">
     <h1 style="margin-top:0">手配Noを入力</h1>
-    <input type="text" id="modal-order-no" autofocus>
+    <input type="text" id="modal-order-no" autofocus placeholder="例: 12345">
   </div>
 </div>
 
 <div class="top-bar">
-  <strong>指示書 v6.2</strong>
+  <strong>指示書 v6.3</strong>
   <span id="display-order-no" onclick="showModal()">---</span>
-  <button id="archive-btn" onclick="runArchive()" style="margin-left: 20px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 5px 10px; font-size:11px;">完了案件を整理</button>
+  <button id="archive-btn" onclick="runArchive()" style="margin-left: 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 5px 10px;">完了案件を整理</button>
   <div style="margin-left: auto;">作成日: <span id="disp-date"></span></div>
 </div>
 
@@ -99,57 +94,45 @@ table.preview-table { border-collapse: collapse; width: 100%; table-layout: fixe
 
 <div id="button-grid"></div>
 
-<div class="bottom-management-area">
-  
-  <div id="side-list-panel">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <strong style="font-size:14px;">保存済みリスト</strong>
-      <label style="font-size:10px;"><input type="checkbox" id="unprinted-only" onchange="refreshOrderList()"> 未発行のみ</label>
+<div class="action-area">
+  <div id="input-card">
+    <div class="card-header">
+      <div class="nav-btn" onclick="navProc(-1)">◁</div>
+      <div id="current-proc-display" class="current-proc-title">未選択</div>
+      <div id="next-btn-focus" class="nav-btn" onclick="navProc(1)" tabindex="0">▷</div>
     </div>
-    <input type="text" id="list-search" placeholder="手配No検索..." oninput="filterList()" style="width:100%; padding:5px; margin-top:5px; box-sizing:border-box;">
-    <div id="order-list-container">読込中...</div>
-    <button onclick="printSelected()" style="margin-top:10px; padding:8px; width:100%; background:#28a745; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px;">選択した指示書を一括発行</button>
-  </div>
-
-  <div class="action-area">
-    <div id="input-card">
-      <div class="card-header">
-        <div class="nav-btn" onclick="navProc(-1)">◁</div>
-        <div id="current-proc-display" class="current-proc-title">未選択</div>
-        <div id="next-btn-focus" class="nav-btn" onclick="navProc(1)" tabindex="0">▷</div>
+    <div class="vertical-inputs">
+      <div id="extra-area" style="display:none;" class="input-item">
+        <label>工程選択</label>
+        <select id="extra-proc-select" onchange="handleExtraSelect()" style="font-size:18px; padding:8px; border:2px solid #ffc107; border-radius:4px; width:220px;"></select>
       </div>
-      <div class="vertical-inputs">
-        <div id="extra-area" style="display:none;" class="input-item">
-          <label>工程選択</label>
-          <select id="extra-proc-select" onchange="handleExtraSelect()"></select>
-        </div>
-        <div class="input-item">
-          <label>指示順</label>
-          <input type="number" id="inp-order" disabled onkeydown="enterNext(event, 'inp-st')" onchange="checkDuplicate(this)" oninput="sync()">
-        </div>
-        <div class="input-item">
-          <label>ST</label>
-          <input type="number" id="inp-st" disabled onkeydown="enterNext(event, 'inp-limit')" oninput="sync()">
-        </div>
-        <div class="input-item">
-          <label>納期</label>
-          <input type="date" id="inp-limit" disabled onclick="this.showPicker()" onkeydown="enterNext(event, 'next-btn-focus')" oninput="sync()">
-        </div>
+      <div class="input-item">
+        <label>指示順</label>
+        <input type="number" id="inp-order" disabled oninput="sync()" onkeydown="enterNext(event, 'inp-st')" onchange="checkDuplicate(this)">
+      </div>
+      <div class="input-item">
+        <label>ST</label>
+        <input type="number" id="inp-st" disabled oninput="sync()" onkeydown="enterNext(event, 'inp-limit')">
+      </div>
+      <div class="input-item">
+        <label>納期</label>
+        <input type="date" id="inp-limit" disabled oninput="sync()" onclick="this.showPicker()" onkeydown="enterNext(event, 'next-btn-focus')">
       </div>
     </div>
-    <div class="save-btn-group">
-      <button class="btn-save-only" onclick="saveData('未発行')">保存のみ（あとで印刷）</button>
-      <button class="btn-save-print" id="save-focus" onclick="saveAndPrint()">保存 ＆ 指示書発行</button>
-    </div>
   </div>
+  <button class="save-btn" id="save-focus" onclick="saveAndPrint()">保存 ＆ 指示書発行</button>
+</div>
 
+<hr>
+<div id="history-panel">
+  <strong>保存済み案件（クリックで復元）</strong>
+  <div id="order-list-container">読込中...</div>
 </div>
 
 <script>
-/* JavaScript部分は前回のロジック（リスト取得、復元、保存、アーカイブ）をそのまま維持 */
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyQ8KW8Z8bPXIu-piVjydNI-na8gBygz1UVCrvGjFRdpJ-NPoj2fk14bzkv62AY4r8T/exec";
 let master = { processes: [] };
-let editData = {};
+let editData = {}; 
 let currentProcIdx = -1;
 
 window.onload = async () => {
@@ -167,19 +150,26 @@ function initUI() {
   const trL = document.getElementById('tr-limit');
   const btnGrid = document.getElementById('button-grid');
   const extraSelect = document.getElementById('extra-proc-select');
+
   extraSelect.innerHTML = '<option value="">-- 正規工程を選択 --</option>';
 
   master.processes.forEach((proc, i) => {
+    // プレビューの器を作成
     thr.innerHTML += `<th id="h-p-${i}">${proc}</th>`;
     trO.innerHTML += `<td id="d-o-${i}"></td>`;
     trS.innerHTML += `<td id="d-s-${i}"></td>`;
     trL.innerHTML += `<td id="d-l-${i}"></td>`;
+
+    // 工程ボタン
     const btn = document.createElement('button');
     btn.className = 'proc-btn';
     btn.innerText = proc;
     btn.onclick = () => selectProc(i);
     btnGrid.appendChild(btn);
+    
+    // データ保持用の初期化
     editData[i] = { name: proc, order: "", st: "", limit: "" };
+
     if(!proc.includes("予備")){
       const opt = document.createElement('option');
       opt.value = proc; opt.innerText = proc;
@@ -188,32 +178,98 @@ function initUI() {
   });
 }
 
-async function refreshOrderList() {
-  const container = document.getElementById('order-list-container');
-  const unprintedOnly = document.getElementById('unprinted-only').checked;
-  try {
-    const res = await fetch(`${GAS_URL}?method=getOrdersWithStatus`);
-    const orders = await res.json();
-    container.innerHTML = "";
-    orders.forEach(item => {
-      if (unprintedOnly && item.status !== "未発行") return;
-      const row = document.createElement('div');
-      row.className = "list-item";
-      row.onclick = () => loadByList(item.no);
-      row.innerHTML = `
-        <input type="checkbox" class="batch-select" value="${item.no}" onclick="event.stopPropagation()">
-        <span style="margin-left:8px; font-weight:bold;">${item.no}</span>
-        <span class="status-badge ${item.status === '未発行' ? 'status-unprinted' : 'status-printed'}">${item.status}</span>
-      `;
-      container.appendChild(row);
-    });
-  } catch (e) { container.innerHTML = "読込エラー"; }
+// 入力値をプレビューに即座に反映させる超重要関数
+function sync() {
+  if (currentProcIdx === -1) return;
+  const o = document.getElementById('inp-order').value;
+  const s = document.getElementById('inp-st').value;
+  const l = document.getElementById('inp-limit').value;
+  
+  // 内部データを更新
+  editData[currentProcIdx].order = o;
+  editData[currentProcIdx].st = s;
+  editData[currentProcIdx].limit = l;
+
+  // 上のプレビュー表を更新（リアルタイム反映）
+  document.getElementById(`d-o-${currentProcIdx}`).innerText = o;
+  document.getElementById(`d-s-${currentProcIdx}`).innerText = s;
+  document.getElementById(`d-l-${currentProcIdx}`).innerText = l ? l.split('-').slice(1).join('/') : "";
 }
 
-function filterList() {
-  const term = document.getElementById('list-search').value.toLowerCase();
-  document.querySelectorAll('.list-item').forEach(item => {
-    item.style.display = item.innerText.toLowerCase().includes(term) ? "flex" : "none";
+function selectProc(index) {
+  currentProcIdx = index;
+  const originalName = master.processes[index];
+  const isExtra = originalName.includes("予備");
+  
+  document.getElementById('current-proc-display').innerText = editData[index].name;
+  document.getElementById('extra-area').style.display = isExtra ? "flex" : "none";
+  
+  document.querySelectorAll('.proc-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('button-grid').children[index].classList.add('active');
+
+  const data = editData[index];
+  document.getElementById('inp-order').value = data.order;
+  document.getElementById('inp-st').value = data.st;
+  document.getElementById('inp-limit').value = data.limit;
+
+  if (isExtra) {
+    document.getElementById('extra-proc-select').value = (data.name === originalName) ? "" : data.name;
+    if (data.name !== originalName && data.name !== "") unlockInputs(); else lockInputs();
+  } else unlockInputs();
+}
+
+// モーダル・手配No確定
+document.getElementById('modal-order-no').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') {
+    const val = this.value.trim();
+    if (!val) return;
+    document.getElementById('display-order-no').innerText = val;
+    document.getElementById('huge-no-display').innerText = "手配No：" + val;
+    document.getElementById('order-modal').style.display = 'none';
+    try { QRCode.toCanvas(document.getElementById('qrcode'), val, { width: 85, margin: 2 }); } catch(err){}
+    this.value = "";
+  }
+});
+
+function showModal() { document.getElementById('order-modal').style.display = 'flex'; document.getElementById('modal-order-no').focus(); }
+function unlockInputs() { ['inp-order', 'inp-st', 'inp-limit'].forEach(id => document.getElementById(id).disabled = false); document.getElementById('inp-order').focus(); }
+function lockInputs() { ['inp-order', 'inp-st', 'inp-limit'].forEach(id => document.getElementById(id).disabled = true); }
+
+function handleExtraSelect() {
+  const selectedName = document.getElementById('extra-proc-select').value;
+  if (selectedName) {
+    editData[currentProcIdx].name = selectedName;
+    document.getElementById(`h-p-${currentProcIdx}`).innerText = selectedName;
+    document.getElementById('current-proc-display').innerText = selectedName;
+    unlockInputs();
+  }
+}
+
+async function saveAndPrint() {
+  const orderNo = document.getElementById('display-order-no').innerText;
+  if (orderNo === "---") return alert("手配Noを入力してください");
+  let savePayload = [];
+  Object.keys(editData).forEach(idx => {
+    const d = editData[idx];
+    if (d.order || d.st || d.limit) savePayload.push([d.name, d.order, d.st, d.limit]);
+  });
+  if (savePayload.length === 0) return alert("入力がありません");
+  const res = await fetch(`${GAS_URL}?method=saveWithStatus&orderNo=${encodeURIComponent(orderNo)}&status=発行済&allData=${encodeURIComponent(JSON.stringify(savePayload))}`);
+  const result = await res.json();
+  if (result === "保存成功") { window.print(); refreshOrderList(); } else alert(result);
+}
+
+async function refreshOrderList() {
+  const container = document.getElementById('order-list-container');
+  const res = await fetch(`${GAS_URL}?method=getOrdersWithStatus`);
+  const orders = await res.json();
+  container.innerHTML = "";
+  orders.forEach(item => {
+    const row = document.createElement('div');
+    row.className = "list-item";
+    row.onclick = () => loadByList(item.no);
+    row.innerHTML = `<span>${item.no}</span><span style="font-size:10px; color:gray;">${item.status}</span>`;
+    container.appendChild(row);
   });
 }
 
@@ -222,7 +278,7 @@ async function loadByList(no) {
   document.getElementById('huge-no-display').innerText = "手配No：" + no;
   try { QRCode.toCanvas(document.getElementById('qrcode'), no, { width: 85, margin: 2 }); } catch(err){}
   
-  // 初期化
+  // 表示クリア
   master.processes.forEach((proc, i) => {
     editData[i] = { name: proc, order: "", st: "", limit: "" };
     document.getElementById(`h-p-${i}`).innerText = proc;
@@ -233,8 +289,7 @@ async function loadByList(no) {
 
   const res = await fetch(`${GAS_URL}?method=loadOrder&orderNo=${encodeURIComponent(no)}`);
   const data = await res.json();
-  
-  if (data && data.length > 0) {
+  if (data) {
     data.forEach(row => {
       const [pName, pOrder, pST, pLimit] = row;
       let idx = master.processes.indexOf(pName);
@@ -250,83 +305,6 @@ async function loadByList(no) {
   }
 }
 
-function selectProc(index) {
-  currentProcIdx = index;
-  const originalName = master.processes[index];
-  const isExtra = originalName.includes("予備");
-  document.getElementById('current-proc-display').innerText = originalName;
-  document.getElementById('extra-area').style.display = isExtra ? "flex" : "none";
-  document.querySelectorAll('.proc-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('button-grid').children[index].classList.add('active');
-  const data = editData[index];
-  document.getElementById('inp-order').value = data.order;
-  document.getElementById('inp-st').value = data.st;
-  document.getElementById('inp-limit').value = data.limit;
-  if (isExtra) {
-    document.getElementById('extra-proc-select').value = (data.name === originalName) ? "" : data.name;
-    if (data.name !== originalName && data.name !== "") unlockInputs(); else lockInputs();
-  } else unlockInputs();
-}
-
-function sync() {
-  if (currentProcIdx === -1) return;
-  const o = document.getElementById('inp-order').value;
-  const s = document.getElementById('inp-st').value;
-  const l = document.getElementById('inp-limit').value;
-  editData[currentProcIdx].order = o;
-  editData[currentProcIdx].st = s;
-  editData[currentProcIdx].limit = l;
-  document.getElementById(`d-o-${currentProcIdx}`).innerText = o;
-  document.getElementById(`d-s-${currentProcIdx}`).innerText = s;
-  document.getElementById(`d-l-${currentProcIdx}`).innerText = l ? l.split('-').slice(1).join('/') : "";
-}
-
-async function saveData(status) {
-  const orderNo = document.getElementById('display-order-no').innerText;
-  if (orderNo === "---") return alert("手配Noを指定してください");
-  let savePayload = [];
-  Object.keys(editData).forEach(idx => {
-    const d = editData[idx];
-    if (d.order || d.st || d.limit) savePayload.push([d.name, d.order, d.st, d.limit]);
-  });
-  const url = `${GAS_URL}?method=saveWithStatus&orderNo=${encodeURIComponent(orderNo)}&status=${status}&allData=${encodeURIComponent(JSON.stringify(savePayload))}`;
-  const res = await fetch(url);
-  const result = await res.json();
-  if (status === '未発行') alert(result);
-  refreshOrderList();
-}
-
-async function saveAndPrint() { await saveData('発行済'); window.print(); }
-
-async function runArchive() {
-  if (!confirm("完了案件をアーカイブしますか？")) return;
-  const btn = document.getElementById('archive-btn');
-  btn.innerText = "処理中..."; btn.disabled = true;
-  google.script.run.withSuccessHandler(res => { alert(res); location.reload(); }).checkAndArchiveCompletedOrders();
-}
-
-document.getElementById('modal-order-no').addEventListener('keypress', function(e) {
-  if (e.key === 'Enter') {
-    const val = this.value.trim();
-    if (!val) return;
-    document.getElementById('display-order-no').innerText = val;
-    document.getElementById('huge-no-display').innerText = "手配No：" + val;
-    document.getElementById('order-modal').style.display = 'none';
-    try { QRCode.toCanvas(document.getElementById('qrcode'), val, { width: 85, margin: 2 }); } catch(err){}
-    this.value = "";
-  }
-});
-function showModal() { document.getElementById('order-modal').style.display = 'flex'; document.getElementById('modal-order-no').focus(); }
-function unlockInputs() { ['inp-order', 'inp-st', 'inp-limit'].forEach(id => document.getElementById(id).disabled = false); document.getElementById('inp-order').focus(); }
-function lockInputs() { ['inp-order', 'inp-st', 'inp-limit'].forEach(id => document.getElementById(id).disabled = true); }
-function handleExtraSelect() {
-  const selectedName = document.getElementById('extra-proc-select').value;
-  if (selectedName) {
-    editData[currentProcIdx].name = selectedName;
-    document.getElementById(`h-p-${currentProcIdx}`).innerText = selectedName;
-    unlockInputs();
-  }
-}
 function checkDuplicate(inputEl) {
   const val = inputEl.value; if (!val) return;
   for (let key in editData) {
@@ -338,10 +316,9 @@ function checkDuplicate(inputEl) {
 }
 function navProc(diff) { let next = currentProcIdx + diff; if (next >= 0 && next < master.processes.length) selectProc(next); }
 function enterNext(e, nextId) { if (e.key === 'Enter') { e.preventDefault(); const nextEl = document.getElementById(nextId); if (nextEl) nextEl.focus(); } }
-async function printSelected() {
-  const selected = Array.from(document.querySelectorAll('.batch-select:checked')).map(cb => cb.value);
-  for (const no of selected) { await loadByList(no); window.print(); await fetch(`${GAS_URL}?method=updateStatusOnly&orderNo=${encodeURIComponent(no)}&status=発行済`); }
-  refreshOrderList();
+async function runArchive() {
+  if (!confirm("完了案件をアーカイブしますか？")) return;
+  google.script.run.withSuccessHandler(res => { alert(res); location.reload(); }).checkAndArchiveCompletedOrders();
 }
 </script>
 </body>
