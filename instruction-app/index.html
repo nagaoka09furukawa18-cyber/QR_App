@@ -6,40 +6,33 @@
   <style>
     body { font-family: "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 10px; background: #e9ecef; }
     
-    /* 上部バー：余計な誘導を削除 */
     .top-bar { display: flex; align-items: center; background: #343a40; color: white; padding: 10px 20px; border-radius: 8px; margin-bottom: 10px; }
     .top-title { font-weight: bold; }
     .top-date { margin-left: auto; font-size: 14px; }
 
-    /* プレビューコンテナ */
     #preview-container { 
       background: white; padding: 20px; border: 1px solid #ccc; margin-bottom: 15px; 
       width: calc(100% - 42px); box-sizing: border-box; overflow-x: auto; 
     }
     .preview-header { display: flex; align-items: center; gap: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
     
-    /* 手配No入力：ハイライトとプレースホルダー */
     .order-input-group { display: flex; align-items: center; font-size: 30px; font-weight: bold; }
     #main-order-no {
       font-size: 30px; font-weight: bold; border: 2px solid #007bff; border-radius: 6px;
       padding: 2px 10px; width: 300px; margin-left: 10px;
-      box-shadow: 0 0 10px rgba(0,123,255,0.2);
     }
-    #main-order-no:focus { background: #fffde7; outline: none; border-color: #ffc107; }
-    #main-order-no.warning { border-color: #dc3545; animation: pulse-red 2s infinite; }
-    @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(220,53,69,0.7); } 70% { box-shadow: 0 0 0 10px rgba(220,53,69,0); } 100% { box-shadow: 0 0 0 0 rgba(220,53,69,0); } }
+    #main-order-no.warning { border-color: #dc3545; box-shadow: 0 0 8px rgba(220,53,69,0.5); }
     
     table.preview-table { border-collapse: collapse; width: 100% !important; min-width: 800px; table-layout: fixed; margin-top: 15px; }
     .preview-table th, .preview-table td { border: 1px solid #000; font-size: 10px; text-align: center; height: 35px; word-break: break-all; }
     .preview-table th { background: #f2f2f2; font-size: 9px; }
     #qr-area canvas { width: 85px !important; height: 85px !important; }
 
-    /* 操作パネルのロック */
-    .disabled-overlay { opacity: 0.3; pointer-events: none; filter: grayscale(1); transition: all 0.2s ease; }
+    .disabled-overlay { opacity: 0.3; pointer-events: none; filter: grayscale(1); }
 
     #button-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; }
     .proc-btn { padding: 8px 12px; font-size: 14px; font-weight: bold; cursor: pointer; border: 1px solid #adb5bd; background: #fff; border-radius: 4px; }
-    .proc-btn.active { background: #007bff; color: white; border-color: #0056b3; }
+    .proc-btn.active { background: #007bff; color: white; }
 
     .action-area { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
     #input-card { background: #fff; padding: 20px; border-radius: 8px; border: 2px solid #007bff; width: 450px; }
@@ -53,27 +46,40 @@
     .input-item input, .input-item select { font-size: 18px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 200px; }
 
     .save-btn { padding: 20px 40px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 20px; }
-    #archive-btn-float { position: fixed; bottom: 20px; right: 20px; background: #6c757d; color: white; border: none; border-radius: 50px; padding: 10px 25px; cursor: pointer; font-size: 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    #archive-btn-float { position: fixed; bottom: 20px; right: 20px; background: #6c757d; color: white; border: none; border-radius: 50px; padding: 10px 25px; cursor: pointer; font-size: 14px; }
 
+    /* 印刷用修正：A4横・白黒・1ページ固定設定 */
     @media print {
+      @page { size: A4 landscape; margin: 5mm; }
+      html, body { 
+        width: 297mm; height: 210mm; background: white !important; 
+        filter: grayscale(100%); /* 強制白黒化 */
+      }
       .top-bar, #button-grid, .action-area, #archive-btn-float { display: none !important; }
-      #preview-container { border: none; padding: 0; width: 100% !important; }
-      table.preview-table { width: 100% !important; min-width: auto; }
-      body { background: white; padding: 0; }
+      
+      #preview-container { 
+        border: none; padding: 0; margin: 0; width: 100% !important; 
+        transform: scale(0.98); transform-origin: top left; /* 1ページに収めるための微調整 */
+      }
+      .preview-header { border-bottom: 3px solid #000; }
+      #main-order-no { border: none; padding: 0; width: auto; font-size: 35px; }
+      table.preview-table { width: 100% !important; border: 2px solid #000; }
+      .preview-table th { background: #eee !important; color: #000 !important; -webkit-print-color-adjust: exact; }
+      .preview-table td, .preview-table th { border: 1px solid #000 !important; color: #000 !important; }
     }
   </style>
 </head>
 <body>
 
 <div class="top-bar">
-  <span class="top-title">指示書作成コックピット v6.63</span>
+  <span class="top-title">指示書作成コックピット v6.64</span>
   <div class="top-date">作成日: <span id="disp-date"></span></div>
 </div>
 
 <div id="preview-container">
   <div class="preview-header">
     <div class="order-input-group">
-      手配No : <input type="text" id="main-order-no" class="warning" placeholder="未入力：ここに入力">
+      手配No : <input type="text" id="main-order-no" class="warning" placeholder="手配Noを入力">
     </div>
     <div id="qr-area" style="margin-left: auto;"><canvas id="qrcode"></canvas></div>
   </div>
@@ -118,7 +124,6 @@ let master = { processes: [] };
 let editData = {}; 
 let currentProcIdx = -1;
 
-// 起動速度改善のため、UI構築とデータ取得を非同期で並列化
 window.onload = () => {
   document.getElementById('disp-date').innerText = new Date().toLocaleDateString();
   fetchMaster(); 
@@ -133,7 +138,6 @@ async function fetchMaster() {
   } catch (err) { console.error("Fetch Error:", err); }
 }
 
-// 手配No入力時の挙動
 document.getElementById('main-order-no').addEventListener('input', function() {
   const val = this.value.trim();
   if (val) {
@@ -164,13 +168,11 @@ function initUI() {
     trO.innerHTML += `<td id="d-o-${i}"></td>`;
     trS.innerHTML += `<td id="d-s-${i}"></td>`;
     trL.innerHTML += `<td id="d-l-${i}"></td>`;
-    
     const btn = document.createElement('button');
     btn.className = 'proc-btn';
     btn.innerText = proc;
     btn.onclick = () => selectProc(i);
     btnGrid.appendChild(btn);
-    
     editData[i] = { name: proc, order: "", st: "", limit: "" };
     if(!proc.includes("予備")){
       const opt = document.createElement('option');
