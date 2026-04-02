@@ -5,59 +5,48 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <style>
     body { font-family: "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 10px; background: #e9ecef; }
+    .top-bar { background: #343a40; color: white; padding: 10px 20px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; }
     
-    /* ローディングは画面上部に小さく表示する形式に変更（全画面ロックを廃止） */
-    #status-bar { position: fixed; top: 0; left: 0; width: 100%; height: 3px; background: #e9ecef; z-index: 10000; }
-    #status-progress { width: 0%; height: 100%; background: #007bff; transition: width 0.3s; }
-
-    .top-bar { display: flex; align-items: center; background: #343a40; color: white; padding: 10px 20px; border-radius: 8px; margin-bottom: 10px; }
+    /* プレビュー */
     #preview-container { background: white; padding: 20px; border: 1px solid #ccc; margin-bottom: 15px; width: calc(100% - 42px); box-sizing: border-box; overflow-x: auto; }
-    .preview-header { display: flex; align-items: center; gap: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+    .order-input-group { display: flex; align-items: center; font-size: 28px; font-weight: bold; margin-bottom: 10px; }
+    #main-order-no { font-size: 28px; font-weight: bold; border: 2px solid #007bff; border-radius: 6px; padding: 2px 10px; width: 300px; margin-left: 10px; background: #fffde7; }
     
-    .order-input-group { display: flex; align-items: center; font-size: 30px; font-weight: bold; }
-    #main-order-no { font-size: 30px; font-weight: bold; border: 2px solid #007bff; border-radius: 6px; padding: 2px 10px; width: 300px; margin-left: 10px; background: #fffde7; }
-    
-    /* プレビューテーブル：枠を固定 */
-    table.preview-table { border-collapse: collapse; width: 100% !important; min-width: 1200px; table-layout: fixed; margin-top: 15px; }
-    .preview-table th, .preview-table td { border: 1px solid #000; font-size: 10px; text-align: center; height: 35px; width: 50px; }
+    table.preview-table { border-collapse: collapse; width: 100%; min-width: 1100px; table-layout: fixed; }
+    .preview-table th, .preview-table td { border: 1px solid #000; font-size: 10px; text-align: center; height: 35px; }
     .preview-table th { background: #f2f2f2; }
-    .preview-table th:first-child, .preview-table td:first-child { width: 80px; font-weight: bold; }
 
-    .disabled-overlay { opacity: 0.3; pointer-events: none; filter: grayscale(1); }
-    #button-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; min-height: 50px; }
+    /* 操作系 */
+    #main-controls { background: white; padding: 15px; border-radius: 8px; border-top: 5px solid #007bff; }
+    .disabled-overlay { opacity: 0.2; pointer-events: none; filter: grayscale(1); }
+    #button-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; }
     .proc-btn { padding: 8px 12px; font-size: 13px; font-weight: bold; cursor: pointer; border: 1px solid #adb5bd; background: #fff; border-radius: 4px; }
     .proc-btn.active { background: #007bff; color: white; }
 
-    .action-area { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
-    #input-card { background: #fff; padding: 20px; border-radius: 8px; border: 2px solid #007bff; width: 450px; }
+    .input-card { border: 1px solid #007bff; padding: 20px; border-radius: 8px; width: 400px; }
     .save-btn { padding: 20px 40px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 20px; }
 
     @media print {
       @page { size: A4 landscape; margin: 5mm; }
-      .top-bar, #button-grid, .action-area, #status-bar { display: none !important; }
-      #preview-container { border: none; padding: 0; width: 100% !important; transform: scale(0.95); transform-origin: top left; }
-      body { background: white; }
+      .top-bar, #main-controls { display: none !important; }
+      #preview-container { border: none; padding: 0; transform: scale(0.97); transform-origin: top left; }
+      #main-order-no { border: none; background: transparent; }
     }
   </style>
 </head>
 <body>
 
-<div id="status-bar"><div id="status-progress"></div></div>
-
 <div class="top-bar">
-  <strong>指示書作成コックピット v6.68</strong>
-  <div style="margin-left:auto; font-size: 13px;">[通信状態: <span id="comm-status">待機中</span>]</div>
+  <strong>指示書作成コックピット v6.71 [Optimized]</strong>
+  <div id="status-display" style="font-size: 12px; color: #00ff00;">通信中...</div>
 </div>
 
 <div id="preview-container">
-  <div class="preview-header">
-    <div class="order-input-group">
-      手配No : <input type="text" id="main-order-no" placeholder="Enterで確定">
-    </div>
-    <div id="qr-area" style="margin-left: auto;"><canvas id="qrcode"></canvas></div>
+  <div class="order-input-group">
+    手配No : <input type="text" id="main-order-no" placeholder="番号入力＋Enter">
   </div>
   <table class="preview-table">
-    <thead><tr id="thr-proc"><th>工程</th></tr></thead>
+    <thead id="thr-proc"><tr><th>工程</th></tr></thead>
     <tbody>
       <tr id="tr-order"><th>指示順</th></tr>
       <tr id="tr-st"><th>ST</th></tr>
@@ -68,114 +57,115 @@
 
 <div id="main-controls" class="disabled-overlay">
   <div id="button-grid"></div>
-  <div class="action-area">
-    <div id="input-card">
-      <div id="current-proc-display" style="font-size:20px; font-weight:bold; text-align:center; color:#007bff; margin-bottom:15px;">工程を選択</div>
-      <div style="display:flex; flex-direction:column; gap:10px;">
-        <div style="display:flex; align-items:center;"><label style="width:80px; font-weight:bold;">指示順</label><input type="number" id="inp-order" style="font-size:18px; padding:5px; width:200px;" oninput="sync()"></div>
-        <div style="display:flex; align-items:center;"><label style="width:80px; font-weight:bold;">ST</label><input type="number" id="inp-st" style="font-size:18px; padding:5px; width:200px;" oninput="sync()"></div>
-        <div style="display:flex; align-items:center;"><label style="width:80px; font-weight:bold;">納期</label><input type="date" id="inp-limit" style="font-size:18px; padding:5px; width:200px;" oninput="sync()"></div>
+  <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+    <div class="input-card">
+      <div id="target-proc-name" style="font-size:20px; font-weight:bold; color:#007bff; margin-bottom:15px;">工程を選択</div>
+      <div style="display:grid; grid-template-columns: 80px 1fr; gap: 10px; align-items: center;">
+        <label>指示順</label><input type="number" id="inp-order" oninput="sync()" style="font-size:18px;">
+        <label>ST</label><input type="number" id="inp-st" oninput="sync()" style="font-size:18px;">
+        <label>納期</label><input type="date" id="inp-limit" oninput="sync()" style="font-size:18px;">
       </div>
     </div>
-    <button class="save-btn" onclick="saveAndPrint()">保存 ＆ 印刷</button>
+    <button class="save-btn" onclick="saveAndPrint()">保存 ＆ 指示書発行</button>
   </div>
 </div>
 
 <script>
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyQ8KW8Z8bPXIu-piVjydNI-na8gBygz1UVCrvGjFRdpJ-NPoj2fk14bzkv62AY4r8T/exec";
-let master = { processes: [] };
+let master = { processes: [], existingNos: {} }; // existingNosに手配Noの目次を持つ
 let editData = {};
 let currentProcIdx = -1;
 
 window.onload = () => {
-  // 最初に仮の枠だけ作っておく（21個）
+  // 初期枠（21列）を即座に描画
+  const thr = document.getElementById('thr-proc').rows[0];
+  const trO = document.getElementById('tr-order');
+  const trS = document.getElementById('tr-st');
+  const trL = document.getElementById('tr-limit');
   for(let i=0; i<21; i++) {
-    document.getElementById('thr-proc').innerHTML += `<th id="h-n-${i}">-</th>`;
-    document.getElementById('tr-order').innerHTML += `<td id="d-o-${i}"></td>`;
-    document.getElementById('tr-st').innerHTML += `<td id="d-s-${i}"></td>`;
-    document.getElementById('tr-limit').innerHTML += `<td id="d-l-${i}"></td>`;
+    thr.innerHTML += `<th id="h-n-${i}">-</th>`;
+    trO.innerHTML += `<td id="d-o-${i}"></td>`;
+    trS.innerHTML += `<td id="d-s-${i}"></td>`;
+    trL.innerHTML += `<td id="d-l-${i}"></td>`;
   }
   fetchMaster();
-  document.getElementById('main-order-no').focus();
 };
 
 async function fetchMaster() {
-  updateStatus("マスタ取得中...", 30);
   try {
     const res = await fetch(`${GAS_URL}?method=getMasters`);
     master = await res.json();
     initUI();
-    updateStatus("準備完了", 100);
-  } catch (err) {
-    updateStatus("通信エラー（マスタ）", 0);
-    console.error(err);
-  }
+    document.getElementById('status-display').innerText = "システム稼働中";
+    document.getElementById('main-order-no').focus();
+  } catch (e) { document.getElementById('status-display').innerText = "通信エラー"; }
 }
-
-function updateStatus(msg, percent) {
-  document.getElementById('comm-status').innerText = msg;
-  document.getElementById('status-progress').style.width = percent + "%";
-}
-
-document.getElementById('main-order-no').addEventListener('keydown', async function(e) {
-  if (e.key === 'Enter') {
-    const val = this.value.trim();
-    if (!val) return;
-    this.style.background = "#e8f0fe";
-    try { QRCode.toCanvas(document.getElementById('qrcode'), val, { width: 85, margin: 2 }); } catch(err){}
-    
-    updateStatus("既存データ確認中...", 60);
-    try {
-      const res = await fetch(`${GAS_URL}?method=getExistingOrder&orderNo=${encodeURIComponent(val)}`);
-      const existing = await res.json();
-      if (existing && existing.length > 0) restoreData(existing);
-      document.getElementById('main-controls').classList.remove('disabled-overlay');
-      if (currentProcIdx === -1) selectProc(0);
-      updateStatus("データ同期完了", 100);
-    } catch (e) {
-      updateStatus("新規データとして開始", 100);
-      document.getElementById('main-controls').classList.remove('disabled-overlay');
-      if (currentProcIdx === -1) selectProc(0);
-    }
-  }
-});
 
 function initUI() {
-  const btnGrid = document.getElementById('button-grid');
-  btnGrid.innerHTML = '';
+  const grid = document.getElementById('button-grid');
+  grid.innerHTML = '';
   master.processes.forEach((proc, i) => {
-    const headerCell = document.getElementById(`h-n-${i}`);
-    if(headerCell) headerCell.innerText = proc;
-    
+    const head = document.getElementById(`h-n-${i}`);
+    if(head) head.innerText = proc;
     const btn = document.createElement('button');
     btn.className = 'proc-btn'; btn.innerText = proc;
     btn.onclick = () => selectProc(i);
-    btnGrid.appendChild(btn);
+    grid.appendChild(btn);
     editData[i] = { name: proc, order: "", st: "", limit: "" };
   });
 }
 
-function selectProc(index) {
-  currentProcIdx = index;
-  document.querySelectorAll('.proc-btn').forEach((b, i) => b.classList.toggle('active', i === index));
-  document.getElementById('current-proc-display').innerText = editData[index] ? editData[index].name : "工程未定義";
-  document.getElementById('inp-order').value = editData[index].order;
-  document.getElementById('inp-st').value = editData[index].st;
-  document.getElementById('inp-limit').value = editData[index].limit;
+// 手配No確定（メモリ判定による爆速化）
+document.getElementById('main-order-no').addEventListener('keydown', async function(e) {
+  if (e.key === 'Enter') {
+    const val = this.value.trim();
+    if (!val) return;
+    
+    // QR生成
+    try { QRCode.toCanvas(document.getElementById('qrcode'), val, { width: 85, margin: 2 }); } catch(err){}
+    this.style.background = "#e8f0fe";
+
+    // メモリ上のIndexに存在するか判定 (通信不要)
+    if (master.existingNos && master.existingNos[val]) {
+      document.getElementById('status-display').innerText = "既存データを読み込み中...";
+      try {
+        const res = await fetch(`${GAS_URL}?method=getExistingOrder&orderNo=${encodeURIComponent(val)}`);
+        const rows = await res.json();
+        restoreData(rows);
+        document.getElementById('status-display').innerText = "既存データ展開完了";
+      } catch (e) { document.getElementById('status-display').innerText = "詳細取得エラー"; }
+    } else {
+      clearPreview(); // 新規なのでリセット
+      document.getElementById('status-display').innerText = "新規手配Noとして受付";
+    }
+    
+    document.getElementById('main-controls').classList.remove('disabled-overlay');
+    if (currentProcIdx === -1) selectProc(0);
+  }
+});
+
+function selectProc(idx) {
+  currentProcIdx = idx;
+  document.querySelectorAll('.proc-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+  document.getElementById('target-proc-name').innerText = master.processes[idx];
+  document.getElementById('inp-order').value = editData[idx].order;
+  document.getElementById('inp-st').value = editData[idx].st;
+  document.getElementById('inp-limit').value = editData[idx].limit;
 }
 
 function sync() {
   if (currentProcIdx === -1) return;
-  editData[currentProcIdx].order = document.getElementById('inp-order').value;
-  editData[currentProcIdx].st = document.getElementById('inp-st').value;
-  editData[currentProcIdx].limit = document.getElementById('inp-limit').value;
-  document.getElementById(`d-o-${currentProcIdx}`).innerText = editData[currentProcIdx].order;
-  document.getElementById(`d-s-${currentProcIdx}`).innerText = editData[currentProcIdx].st;
-  const l = editData[currentProcIdx].limit;
-  document.getElementById(`d-l-${currentProcIdx}`).innerText = l ? l.split('-').slice(1).join('/') : "";
+  const d = editData[currentProcIdx];
+  d.order = document.getElementById('inp-order').value;
+  d.st = document.getElementById('inp-st').value;
+  d.limit = document.getElementById('inp-limit').value;
+  document.getElementById(`d-o-${currentProcIdx}`).innerText = d.order;
+  document.getElementById(`d-s-${currentProcIdx}`).innerText = d.st;
+  document.getElementById(`d-l-${currentProcIdx}`).innerText = d.limit ? d.limit.split('-').slice(1).join('/') : "";
 }
 
 function restoreData(rows) {
+  clearPreview();
   rows.forEach(row => {
     const idx = master.processes.indexOf(row[0]);
     if (idx !== -1) {
@@ -187,6 +177,15 @@ function restoreData(rows) {
   });
 }
 
+function clearPreview() {
+  master.processes.forEach((p, i) => {
+    editData[i] = { name: p, order: "", st: "", limit: "" };
+    document.getElementById(`d-o-${i}`).innerText = "";
+    document.getElementById(`d-s-${i}`).innerText = "";
+    document.getElementById(`d-l-${i}`).innerText = "";
+  });
+}
+
 async function saveAndPrint() {
   const orderNo = document.getElementById('main-order-no').value.trim();
   let payload = [];
@@ -194,14 +193,18 @@ async function saveAndPrint() {
     const d = editData[idx];
     if (d.order || d.st || d.limit) payload.push([d.name, d.order, d.st, d.limit]);
   });
-  updateStatus("保存中...", 80);
+  
+  document.getElementById('status-display').innerText = "保存中...";
   try {
     const res = await fetch(`${GAS_URL}?method=saveOnly&orderNo=${encodeURIComponent(orderNo)}&allData=${encodeURIComponent(JSON.stringify(payload))}`);
-    if ((await res.json()) === "保存成功") {
-      updateStatus("保存成功", 100);
+    const result = await res.json();
+    if (result === "保存成功") {
+      // メモリ上のIndexを更新して次回から爆速判定できるようにする
+      master.existingNos[orderNo] = true;
+      document.getElementById('status-display').innerText = "保存完了・印刷中";
       window.print();
     }
-  } catch(e) { alert("保存に失敗しました"); }
+  } catch(e) { document.getElementById('status-display').innerText = "保存失敗"; }
 }
 </script>
 </body>
