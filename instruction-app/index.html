@@ -6,26 +6,19 @@
   <style>
     body { font-family: "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 10px; background: #e9ecef; }
     .top-bar { background: #343a40; color: white; padding: 10px 20px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-    
-    /* プレビュー表示（レビュー） */
     #preview-container { background: white; padding: 20px; border: 1px solid #ccc; margin-bottom: 15px; width: calc(100% - 42px); box-sizing: border-box; overflow-x: auto; }
     .order-input-group { display: flex; align-items: center; font-size: 28px; font-weight: bold; margin-bottom: 10px; }
     #main-order-no { font-size: 28px; font-weight: bold; border: 2px solid #007bff; border-radius: 6px; padding: 2px 10px; width: 300px; margin-left: 10px; background: #fffde7; }
-    
     table.preview-table { border-collapse: collapse; width: 100%; min-width: 1100px; table-layout: fixed; }
     .preview-table th, .preview-table td { border: 1px solid #000; font-size: 10px; text-align: center; height: 35px; word-break: break-all; }
     .preview-table th { background: #f2f2f2; }
-
-    /* 操作パネル（コックピット） */
     #main-controls { background: white; padding: 15px; border-radius: 8px; border-top: 5px solid #007bff; }
     .disabled-overlay { opacity: 0.2; pointer-events: none; filter: grayscale(1); }
-    #button-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; }
+    #button-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; min-height: 40px; }
     .proc-btn { padding: 8px 12px; font-size: 13px; font-weight: bold; cursor: pointer; border: 1px solid #adb5bd; background: #fff; border-radius: 4px; }
     .proc-btn.active { background: #007bff; color: white; border-color: #0056b3; }
-
     .input-card { border: 1px solid #007bff; padding: 20px; border-radius: 8px; width: 400px; }
     .save-btn { padding: 20px 40px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 20px; }
-
     @media print {
       @page { size: A4 landscape; margin: 5mm; }
       .top-bar, #main-controls { display: none !important; }
@@ -37,8 +30,8 @@
 <body>
 
 <div class="top-bar">
-  <strong>指示書作成コックピット v6.72</strong>
-  <div id="status-display" style="font-size: 12px; color: #00ff00;">システム通信中...</div>
+  <strong>指示書作成コックピット v6.73</strong>
+  <div id="status-display" style="font-size: 12px; color: #00ff00;">システム準備中...</div>
 </div>
 
 <div id="preview-container">
@@ -46,7 +39,7 @@
     手配No : <input type="text" id="main-order-no" placeholder="Enterで確定">
   </div>
   <table class="preview-table">
-    <thead id="thr-proc"><tr><th>工程</th></tr></thead>
+    <thead id="thr-proc"><tr><th style="width:80px;">工程</th></tr></thead>
     <tbody>
       <tr id="tr-order"><th>指示順</th></tr>
       <tr id="tr-st"><th>ST</th></tr>
@@ -66,4 +59,156 @@
         <label style="font-weight:bold;">ST</label>
         <input type="number" id="inp-st" oninput="sync()" style="font-size:18px; padding:5px;">
         <label style="font-weight:bold;">納期</label>
-        <input type="date" id="
+        <input type="date" id="inp-limit" oninput="sync()" style="font-size:18px; padding:5px;">
+      </div>
+    </div>
+    <button class="save-btn" onclick="saveAndPrint()">保存 ＆ 指示書発行</button>
+  </div>
+</div>
+
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyQ8KW8Z8bPXIu-piVjydNI-na8gBygz1UVCrvGjFRdpJ-NPoj2fk14bzkv62AY4r8T/exec";
+let master = { processes: [], existingNos: {} };
+let editData = {}; 
+let currentProcIdx = -1;
+
+// 起動時に即座に枠組みを作る
+window.onload = () => {
+  const thr = document.getElementById('thr-proc').rows[0];
+  const trO = document.getElementById('tr-order');
+  const trS = document.getElementById('tr-st');
+  const trL = document.getElementById('tr-limit');
+  
+  // 21列分の空セルを生成（画像2枚目の状態を再現）
+  for(let i=0; i<21; i++) {
+    thr.innerHTML += `<th id="h-n-${i}">-</th>`;
+    trO.innerHTML += `<td id="d-o-${i}"></td>`;
+    trS.innerHTML += `<td id="d-s-${i}"></td>`;
+    trL.innerHTML += `<td id="d-l-${i}"></td>`;
+    editData[i] = { name: "-", order: "", st: "", limit: "" };
+  }
+  
+  fetchMaster(); // バックグラウンドでマスタ取得
+};
+
+async function fetchMaster() {
+  try {
+    const res = await fetch(`${GAS_URL}?method=getMasters`);
+    master = await res.json();
+    updateUIWithMaster(); // 取得したマスタでUIを更新（ボタン表示など）
+    document.getElementById('status-display').innerText = "Ready";
+    document.getElementById('main-order-no').focus();
+  } catch (e) { document.getElementById('status-display').innerText = "通信エラー"; }
+}
+
+function updateUIWithMaster() {
+  const grid = document.getElementById('button-grid');
+  grid.innerHTML = '';
+  master.processes.forEach((proc, i) => {
+    // ヘッダー名更新
+    const head = document.getElementById(`h-n-${i}`);
+    if(head) head.innerText = proc;
+    
+    // 工程ボタン生成
+    const btn = document.createElement('button');
+    btn.className = 'proc-btn'; btn.innerText = proc;
+    btn.onclick = () => selectProc(i);
+    grid.appendChild(btn);
+    
+    // メモリ初期化
+    editData[i] = { name: proc, order: "", st: "", limit: "" };
+  });
+}
+
+document.getElementById('main-order-no').addEventListener('keydown', async function(e) {
+  if (e.key === 'Enter') {
+    const val = this.value.trim();
+    if (!val) return;
+    this.style.background = "#e8f0fe";
+    clearPreview(); 
+
+    if (master.existingNos && master.existingNos[val]) {
+      document.getElementById('status-display').innerText = "データ取得中...";
+      try {
+        const res = await fetch(`${GAS_URL}?method=getExistingOrder&orderNo=${encodeURIComponent(val)}`);
+        const rows = await res.json();
+        if (rows && rows.length > 0) {
+          restoreData(rows); 
+          document.getElementById('status-display').innerText = "データ展開完了";
+        }
+      } catch (err) { document.getElementById('status-display').innerText = "取得失敗"; }
+    } else {
+      document.getElementById('status-display').innerText = "新規手配No";
+    }
+    document.getElementById('main-controls').classList.remove('disabled-overlay');
+    if (currentProcIdx === -1) selectProc(0);
+  }
+});
+
+function selectProc(idx) {
+  if (!editData[idx]) return;
+  currentProcIdx = idx;
+  document.querySelectorAll('.proc-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+  document.getElementById('target-proc-name').innerText = editData[idx].name;
+  document.getElementById('inp-order').value = editData[idx].order;
+  document.getElementById('inp-st').value = editData[idx].st;
+  document.getElementById('inp-limit').value = editData[idx].limit;
+}
+
+function sync() {
+  if (currentProcIdx === -1) return;
+  const d = editData[currentProcIdx];
+  d.order = document.getElementById('inp-order').value;
+  d.st = document.getElementById('inp-st').value;
+  d.limit = document.getElementById('inp-limit').value;
+  document.getElementById(`d-o-${currentProcIdx}`).innerText = d.order;
+  document.getElementById(`d-s-${currentProcIdx}`).innerText = d.st;
+  document.getElementById(`d-l-${currentProcIdx}`).innerText = d.limit ? d.limit.split('-').slice(1).join('/') : "";
+}
+
+function restoreData(rows) {
+  rows.forEach(row => {
+    const procNameFromDB = row[0];
+    const idx = master.processes.indexOf(procNameFromDB);
+    if (idx !== -1) {
+      editData[idx].order = row[1] || "";
+      editData[idx].st = row[2] || "";
+      editData[idx].limit = row[3] ? row[3].split('T')[0] : "";
+      document.getElementById(`d-o-${idx}`).innerText = editData[idx].order;
+      document.getElementById(`d-s-${idx}`).innerText = editData[idx].st;
+      document.getElementById(`d-l-${idx}`).innerText = editData[idx].limit ? editData[idx].limit.split('-').slice(1).join('/') : "";
+    }
+  });
+  if (currentProcIdx !== -1) selectProc(currentProcIdx);
+}
+
+function clearPreview() {
+  Object.keys(editData).forEach(i => {
+    editData[i].order = ""; editData[i].st = ""; editData[i].limit = "";
+    document.getElementById(`d-o-${i}`).innerText = "";
+    document.getElementById(`d-s-${i}`).innerText = "";
+    document.getElementById(`d-l-${i}`).innerText = "";
+  });
+}
+
+async function saveAndPrint() {
+  const orderNo = document.getElementById('main-order-no').value.trim();
+  if (!orderNo) return alert("手配Noを入力してください");
+  let payload = [];
+  Object.keys(editData).forEach(idx => {
+    const d = editData[idx];
+    if (d.order || d.st || d.limit) payload.push([d.name, d.order, d.st, d.limit]);
+  });
+  document.getElementById('status-display').innerText = "保存中...";
+  try {
+    const res = await fetch(`${GAS_URL}?method=saveOnly&orderNo=${encodeURIComponent(orderNo)}&allData=${encodeURIComponent(JSON.stringify(payload))}`);
+    if ((await res.json()) === "保存成功") {
+      master.existingNos[orderNo] = true;
+      document.getElementById('status-display').innerText = "保存成功";
+      window.print();
+    }
+  } catch(e) { document.getElementById('status-display').innerText = "保存失敗"; }
+}
+</script>
+</body>
+</html>
