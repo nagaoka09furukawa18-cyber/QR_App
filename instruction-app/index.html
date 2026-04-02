@@ -6,10 +6,29 @@
     body { font-family: sans-serif; margin: 0; padding: 10px; background: #e9ecef; }
     #debug-log { background: #000; color: #0f0; font-family: monospace; font-size: 11px; padding: 10px; margin-bottom: 10px; height: 100px; overflow-y: auto; }
     .top-bar { background: #343a40; color: white; padding: 10px 20px; display: flex; justify-content: space-between; }
+    
+    /* --- 修正箇所：20工程対応のレイアウト固定 --- */
     #preview-container { background: white; padding: 20px; border: 1px solid #ccc; margin-bottom: 15px; overflow-x: auto; }
+    table.preview-table { 
+      table-layout: fixed; /* 幅の自動計算を無効化 */
+      border-collapse: collapse; 
+      width: auto; 
+      min-width: 100%; 
+    }
+    .preview-table th, .preview-table td { 
+      border: 1px solid #000; 
+      font-size: 11px; 
+      text-align: center; 
+      height: 35px;
+      width: 75px; /* 全てのデータ列の幅を75pxに固定 */
+      overflow: hidden; 
+      white-space: nowrap; 
+    }
+    /* 見出し列だけ少し広めに設定 */
+    .preview-table th:first-child { width: 85px; background: #f8f9fa; }
+    /* -------------------------------------- */
+
     #main-order-no { font-size: 28px; font-weight: bold; border: 2px solid #007bff; background: #fffde7; padding: 5px; width: 300px; }
-    table.preview-table { border-collapse: collapse; width: 100%; min-width: 1000px; }
-    .preview-table th, .preview-table td { border: 1px solid #000; font-size: 11px; text-align: center; height: 35px; }
     #main-controls { background: white; padding: 15px; border-top: 5px solid #007bff; }
     .proc-btn { padding: 10px; margin: 2px; cursor: pointer; border: 1px solid #ccc; background: #fff; font-weight: bold; }
     .proc-btn.active { background: #007bff; color: white; }
@@ -29,9 +48,9 @@
 </div>
 
 <div id="preview-container">
-  <div style="margin-bottom:10px;">手配No : <input type="text" id="main-order-no"></div>
+  <div style="margin-bottom:10px;">手配No : <input type="text" id="main-order-no" placeholder="Enterで検索"></div>
   <table class="preview-table">
-    <thead><tr id="tr-head"><th style="width:80px;">工程</th></tr></thead>
+    <thead><tr id="tr-head"><th>工程</th></tr></thead>
     <tr id="tr-order"><th>指示順</th></tr>
     <tr id="tr-st"><th>ST</th></tr>
     <tr id="tr-limit"><th>納期</th></tr>
@@ -62,7 +81,11 @@ let master = { existingNos: {} };
 let masterProcs = [];
 let currentIdx = 0;
 
-function log(m) { document.getElementById('debug-log').innerHTML += `<div>> ${m}</div>`; }
+function log(m) { 
+  const div = document.getElementById('debug-log');
+  div.innerHTML += `<div>> ${m}</div>`;
+  div.scrollTop = div.scrollHeight;
+}
 
 window.onload = async () => {
   await fetchMaster();
@@ -95,7 +118,7 @@ function initUI() {
   const trS = document.getElementById('tr-st');
   const trL = document.getElementById('tr-limit');
 
-  trH.innerHTML = '<th style="width:80px;">工程</th>';
+  trH.innerHTML = '<th>工程</th>';
   trO.innerHTML = '<th>指示順</th>';
   trS.innerHTML = '<th>ST</th>';
   trL.innerHTML = '<th>納期</th>';
