@@ -104,8 +104,15 @@
 
 <div class="top-bar">
   <strong>指示書作成コックピット v6.61</strong>
-  <span id="display-order-no" onclick="showModal()">---</span>
+  <span id="display-order-no" onclick="showModal()">【手配No未入力：ここをクリック】</span>
+  <span id="no-input-warning">← まず手配Noを確定させてください</span>
   <div style="margin-left: auto;">作成日: <span id="disp-date"></span></div>
+</div>
+
+<div id="main-controls" class="disabled-overlay">
+  <div id="button-grid"></div>
+  <div class="action-area">
+    </div>
 </div>
 
 <div id="preview-container">
