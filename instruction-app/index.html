@@ -12,19 +12,31 @@
     .top-bar { display: flex; align-items: center; background: #343a40; color: white; padding: 10px 20px; border-radius: 8px; margin-bottom: 10px; }
     #display-order-no { font-size: 22px; font-weight: bold; color: #ffc107; cursor: pointer; text-decoration: underline; margin-left: 15px; }
 
-    /* 【v6.6修正】プレビュー幅を厳密に管理 */
+    /* プレビュー外枠：ここを画面一杯に広げる */
     #preview-container { 
       background: white; padding: 20px; border: 1px solid #ccc; margin-bottom: 15px; 
-      width: calc(100% - 42px); /* パディング込みで画面幅いっぱいに固定 */
+      width: calc(100% - 42px);
       box-sizing: border-box;
-      min-height: 200px;
+      overflow-x: auto; /* 万が一はみ出してもスクロール可能に */
     }
     .preview-header { display: flex; align-items: center; gap: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
     .order-no-title { font-size: 30px; font-weight: bold; }
     
-    /* 【v6.6修正】table-layout: fixed を維持しつつ、幅100%を強制 */
-    table.preview-table { border-collapse: collapse; width: 100% !important; table-layout: fixed; margin-top: 15px; }
-    .preview-table th, .preview-table td { border: 1px solid #000; font-size: 10px; text-align: center; height: 35px; }
+    /* 【最重要修正】テーブルを強制的に横いっぱいに広げる */
+    table.preview-table { 
+      border-collapse: collapse; 
+      width: 100% !important; /* 親要素の幅いっぱいに広げる */
+      min-width: 800px;        /* 縮みすぎ防止：最低でも800pxは確保 */
+      table-layout: fixed;    /* 各列の幅を均等にする */
+      margin-top: 15px; 
+    }
+    .preview-table th, .preview-table td { 
+      border: 1px solid #000; 
+      font-size: 10px; 
+      text-align: center; 
+      height: 35px; 
+      word-break: break-all; /* 文字が長くてもセルを突き破らない */
+    }
     .preview-table th { background: #f2f2f2; font-size: 9px; }
     #qr-area canvas { width: 85px !important; height: 85px !important; }
 
@@ -48,17 +60,17 @@
 
     .save-btn { padding: 20px 40px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 20px; }
 
-    /* アーカイブボタン：画面右下にフローティング配置（レイアウトに影響させない） */
+    /* アーカイブボタン：位置を固定し、他の要素を邪魔しない */
     #archive-btn-float {
       position: fixed; bottom: 20px; right: 20px; background: #6c757d; color: white;
       border: none; border-radius: 50px; padding: 10px 25px; cursor: pointer; font-size: 14px; font-weight: bold;
       box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 1000;
     }
-    #archive-btn-float:hover { background: #5a6268; }
 
     @media print {
       .top-bar, #button-grid, .action-area, #order-modal, .nav-btn, #archive-btn-float { display: none !important; }
       #preview-container { border: none; padding: 0; width: 100% !important; }
+      table.preview-table { width: 100% !important; min-width: auto; }
       body { background: white; padding: 0; }
       @page { size: A4 landscape; margin: 10mm; }
     }
@@ -74,7 +86,7 @@
 </div>
 
 <div class="top-bar">
-  <strong>指示書作成コックピット v6.6</strong>
+  <strong>指示書作成コックピット v6.61</strong>
   <span id="display-order-no" onclick="showModal()">---</span>
   <div style="margin-left: auto;">作成日: <span id="disp-date"></span></div>
 </div>
@@ -250,13 +262,9 @@ function checkDuplicate(inputEl) {
 function navProc(diff) { let next = currentProcIdx + diff; if (next >= 0 && next < master.processes.length) selectProc(next); }
 function enterNext(e, nextId) { if (e.key === 'Enter') { e.preventDefault(); const nextEl = document.getElementById(nextId); if (nextEl) nextEl.focus(); } }
 
-// アーカイブ処理の呼び出し
 function runArchive() {
   if (!confirm("完了案件をアーカイブしますか？")) return;
-  google.script.run.withSuccessHandler(res => {
-    alert(res);
-    location.reload();
-  }).checkAndArchiveCompletedOrders();
+  google.script.run.withSuccessHandler(res => { alert(res); location.reload(); }).checkAndArchiveCompletedOrders();
 }
 </script>
 </body>
