@@ -171,10 +171,39 @@ let currentProcIdx = -1;
 
 window.onload = async () => {
   document.getElementById('disp-date').innerText = new Date().toLocaleDateString();
-  const res = await fetch(`${GAS_URL}?method=getMasters`);
-  master = await res.json();
-  initUI();
+  // 初期状態ではモーダルを出さない
+  try {
+    const res = await fetch(`${GAS_URL}?method=getMasters`);
+    master = await res.json();
+    initUI();
+    // ここではまだ disabled-overlay は外さない
+  } catch (err) {
+    console.error("読み込みエラー:", err);
+  }
 };
+
+// 手配Noが確定した時の処理
+document.getElementById('modal-order-no').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') {
+    const val = this.value.trim();
+    if (!val) return;
+    
+    // 画面に反映
+    document.getElementById('display-order-no').innerText = val;
+    document.getElementById('huge-no-display').innerText = "手配No：" + val;
+    document.getElementById('order-modal').style.display = 'none';
+    document.getElementById('no-input-warning').style.display = 'none';
+    
+    // ★ここで「操作エリア」のロックを解除
+    document.getElementById('main-controls').classList.remove('disabled-overlay');
+    
+    // QR生成
+    try { QRCode.toCanvas(document.getElementById('qrcode'), val, { width: 85, margin: 2 }); } catch(err){}
+    
+    // 最初の工程を自動選択
+    selectProc(0);
+  }
+});
 
 function initUI() {
   const thr = document.getElementById('thr-proc');
