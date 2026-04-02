@@ -15,7 +15,6 @@
     .proc-btn.active { background: #007bff; color: white; }
     .save-btn { padding: 15px 30px; background: #28a745; color: white; border: none; font-size: 20px; cursor: pointer; }
     @media print { .top-bar, #main-controls, #debug-log { display: none !important; } }
-    /* ◁ ▷ 用の追加スタイル */
     .nav-btn { padding: 5px 15px; font-size: 20px; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; }
     .nav-btn:hover { background: #e0e0e0; }
   </style>
@@ -32,7 +31,7 @@
 <div id="preview-container">
   <div style="margin-bottom:10px;">手配No : <input type="text" id="main-order-no"></div>
   <table class="preview-table">
-    <thead id="thr-proc"><tr id="tr-head"><th style="width:80px;">工程</th></tr></thead>
+    <thead><tr id="tr-head"><th style="width:80px;">工程</th></tr></thead>
     <tr id="tr-order"><th>指示順</th></tr>
     <tr id="tr-st"><th>ST</th></tr>
     <tr id="tr-limit"><th>納期</th></tr>
@@ -40,20 +39,19 @@
 </div>
 
 <div id="main-controls">
-  <div id="button-grid"></div>
   <div style="display:flex; justify-content:space-between; margin-top:15px;">
-    <div style="border:1px solid #007bff; padding:15px; border-radius:5px;">
+    <div style="border:1px solid #007bff; padding:15px; border-radius:5px; background:#f8f9fa;">
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
         <button type="button" class="nav-btn" onclick="moveProc(-1)">◁</button>
-        <div id="target-proc-name" style="font-weight:bold; color:#007bff; font-size:18px; min-width:80px; text-align:center;">工程選択</div>
+        <div id="target-proc-name" style="font-weight:bold; color:#007bff; font-size:20px; min-width:120px; text-align:center;">工程選択</div>
         <button type="button" class="nav-btn" onclick="moveProc(1)">▷</button>
       </div>
       
       指示順: <input type="number" id="inp-order" oninput="sync()" onkeydown="handleEnter(event, 'inp-st')"><br>
       ST: <input type="number" id="inp-st" oninput="sync()" onkeydown="handleEnter(event, 'inp-limit')"><br>
-      納期: <input type="date" id="inp-limit" oninput="sync()" onclick="this.showPicker()">
+      納期: <input type="date" id="inp-limit" oninput="sync()" onclick="this.showPicker()" onkeydown="handleEnter(event, 'save-btn')">
     </div>
-    <button class="save-btn" onclick="saveAndPrint()">保存 ＆ 印刷</button>
+    <button id="save-btn" class="save-btn" onclick="saveAndPrint()">保存 ＆ 印刷</button>
   </div>
 </div>
 
@@ -61,7 +59,7 @@
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyQ8KW8Z8bPXIu-piVjydNI-na8gBygz1UVCrvGjFRdpJ-NPoj2fk14bzkv62AY4r8T/exec";
 let editData = {};
 let master = { existingNos: {} };
-let masterProcs = []; // M_工程から取得したリスト
+let masterProcs = [];
 let currentIdx = 0;
 
 function log(m) { document.getElementById('debug-log').innerHTML += `<div>> ${m}</div>`; }
@@ -76,10 +74,15 @@ async function fetchMaster() {
     const res = await fetch(`${GAS_URL}?method=getMasters`);
     const data = await res.json();
     master.existingNos = data.existingNos || {};
-    masterProcs = data.processes || []; // ここで「M_工程」をセット
+    masterProcs = data.processes || [];
     
-    initUI(); // UI構築（表のヘッダーなど）
-    updateCockpit(); // 最初の工程を表示
+    if (masterProcs.length === 0) {
+      log("エラー: M_工程が取得できませんでした。");
+      return;
+    }
+
+    initUI(); 
+    updateCockpit(); 
     
     log(`同期完了: ${Object.keys(master.existingNos).length}件の手配No / ${masterProcs.length}工程を認識`);
     document.getElementById('status-display').innerText = "Ready";
@@ -92,7 +95,6 @@ function initUI() {
   const trS = document.getElementById('tr-st');
   const trL = document.getElementById('tr-limit');
 
-  // 初期化（「工程」などの見出し以外をクリア）
   trH.innerHTML = '<th style="width:80px;">工程</th>';
   trO.innerHTML = '<th>指示順</th>';
   trS.innerHTML = '<th>ST</th>';
@@ -115,9 +117,7 @@ function moveProc(step) {
 
 function updateCockpit() {
   if (masterProcs.length === 0) return;
-  const procName = masterProcs[currentIdx];
-  document.getElementById('target-proc-name').innerText = procName;
-  
+  document.getElementById('target-proc-name').innerText = masterProcs[currentIdx];
   const d = editData[currentIdx];
   document.getElementById('inp-order').value = d.order;
   document.getElementById('inp-st').value = d.st;
@@ -127,8 +127,11 @@ function updateCockpit() {
 function handleEnter(e, nextId) {
   if (e.key === 'Enter') {
     e.preventDefault();
-    document.getElementById(nextId).focus();
-    if (nextId === 'inp-limit') document.getElementById(nextId).showPicker();
+    const nextEl = document.getElementById(nextId);
+    if (nextEl) {
+      nextEl.focus();
+      if (nextId === 'inp-limit') nextEl.showPicker();
+    }
   }
 }
 
@@ -155,7 +158,7 @@ document.getElementById('main-order-no').addEventListener('keydown', async funct
     clearPreview();
     const rangeInfo = master.existingNos[val];
     if (rangeInfo) {
-      log(`手配No [${val}] を発見。`);
+      log(`手配No [${val}] を発見。読み込み中...`);
       try {
         const res = await fetch(`${GAS_URL}?method=getExistingOrder&range=${JSON.stringify(rangeInfo)}`);
         const rows = await res.json();
@@ -167,10 +170,11 @@ document.getElementById('main-order-no').addEventListener('keydown', async funct
           }
         });
         updateCockpit();
-        log("反映完了。");
+        log("データ読み込み完了。");
       } catch (err) { log("データ取得失敗"); }
     } else {
-      log("新規手配Noです。");
+      log("新規案件です。");
+      updateCockpit();
     }
   }
 });
@@ -199,7 +203,7 @@ async function saveAndPrint() {
     const result = await res.json();
     if (result.status === "保存成功") {
       master.existingNos = result.newIndex;
-      log("保存成功。最新の地図を同期しました。");
+      log("保存完了。印刷します。");
       window.print();
     }
   } catch(e) { log("通信エラー"); }
