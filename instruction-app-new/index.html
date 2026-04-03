@@ -67,19 +67,21 @@
   let currentIdx = 0;
 </script>
 
-<?!= include('js_ui'); ?>
-<?!= include('js_logic'); ?>
+<?!= include('js_logic'); ?>  <?!= include('js_ui'); ?>
 
 <script>
-  // ★ ここを「DOMContentLoaded」に変えました
   document.addEventListener('DOMContentLoaded', () => { 
+    console.log("Checking functions...");
+    console.log("fetchMaster exists:", typeof fetchMaster);
+    console.log("initUI exists:", typeof initUI);
+    
     if (typeof fetchMaster === 'function') {
       fetchMaster(); 
     } else {
-      console.error("fetchMaster is not loaded correctly.");
-      document.getElementById('loading-screen').innerHTML = "エラー: ファイルの読み込み順序に問題があります";
+      alert("js_logic が読み込めていません！ファイル名を確認してください。");
     }
   });
+</script>
 
   document.getElementById('main-order-no').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') handleOrderSearch(this.value.trim());
