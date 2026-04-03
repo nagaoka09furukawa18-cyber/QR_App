@@ -71,13 +71,15 @@
 <?!= include('js_logic'); ?>
 
 <script>
-  window.onload = () => { 
+  // ★ ここを「DOMContentLoaded」に変えました
+  document.addEventListener('DOMContentLoaded', () => { 
     if (typeof fetchMaster === 'function') {
       fetchMaster(); 
     } else {
       console.error("fetchMaster is not loaded correctly.");
+      document.getElementById('loading-screen').innerHTML = "エラー: ファイルの読み込み順序に問題があります";
     }
-  };
+  });
 
   document.getElementById('main-order-no').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') handleOrderSearch(this.value.trim());
