@@ -10,7 +10,7 @@
 <div id="loading-screen"><div class="spinner"></div><div>システム同期中...</div></div>
 
 <div id="main-content">
-  <div id="debug-log"><div>[System Log v7.0 - 分割管理移行完了]</div></div>
+  <div id="debug-log"><div>[System Log v7.0 - 分割管理移行中]</div></div>
   <div class="top-bar"><strong>指示書作成コックピット v7.0</strong><div id="status-display" class="status-ok">Ready</div></div>
 
   <div id="print-area">
@@ -54,15 +54,15 @@
       <thead>
         <tr style="background:#f8f9fa;"><th>手配No</th><th>ステータス</th></tr>
       </thead>
-      <tbody id="status-table-body">
-        </tbody>
+      <tbody id="status-table-body"></tbody>
     </table>
   </div>
 </div>
 
 <script>
-  // グローバル変数
+  // ★修正：URLを正しく引用符で囲みました
   const GAS_URL = "https://script.google.com/macros/s/AKfycbxgmWEqg5b-K4821huNJjCo9vSHKFsv1C8jWMBU6yvwO0N3AknT-P-Zk4U488AyRwJMJw/exec";
+  
   let editData = {};
   let master = { existingNos: {} };
   let masterProcs = [];
@@ -70,7 +70,6 @@
 
   window.onload = () => { fetchMaster(); };
 
-  // 手配No入力イベントの紐付け
   document.getElementById('main-order-no').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') handleOrderSearch(this.value.trim());
   });
