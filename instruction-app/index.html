@@ -32,7 +32,8 @@
     .detail-inputs input { font-size: 18px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
     .inp-sml { width: 60px; }
     .inp-med { width: 80px; }
-    .save-btn { padding: 12px 35px; background: #28a745; color: white; border: none; font-size: 20px; cursor: pointer; font-weight: bold; border-radius: 6px; box-shadow: 0 4px #1e7e34; }
+    .save-btn { padding: 12px 25px; background: #28a745; color: white; border: none; font-size: 18px; cursor: pointer; font-weight: bold; border-radius: 6px; box-shadow: 0 4px #1e7e34; margin-left: 5px; }
+    .btn-blue { background: #007bff; box-shadow: 0 4px #0056b3; }
     .nav-btn { padding: 8px 18px; font-size: 22px; cursor: pointer; background: #fff; border: 1px solid #007bff; color: #007bff; border-radius: 6px; }
 
     @media print {
@@ -47,8 +48,8 @@
 <div id="loading-screen"><div class="spinner"></div><div>システム同期中...</div></div>
 
 <div id="main-content">
-  <div id="debug-log"><div>[System Log v6.94 - Status Update & Fix]</div></div>
-  <div class="top-bar"><strong>指示書作成コックピット v6.94</strong><div id="status-display" class="status-ok">Ready</div></div>
+  <div id="debug-log"><div>[System Log v6.96 - Data Recovery & T_工程詳細]</div></div>
+  <div class="top-bar"><strong>指示書作成コックピット v6.96</strong><div id="status-display" class="status-ok">Ready</div></div>
 
   <div id="print-area">
     <div class="header-flex">
@@ -79,7 +80,10 @@
       ST: <input type="number" id="inp-st" class="inp-med" oninput="sync()" onfocus="setHighlight('s')" onkeydown="handleEnter(event, 'inp-limit')">
       納期: <input type="date" id="inp-limit" onchange="checkLimitSequence(this)" onfocus="setHighlight('l')" onkeydown="handleEnter(event, 'SAVE')" onclick="this.showPicker()">
     </div>
-    <button id="save-btn" class="save-btn" onclick="saveAndPrint('発行済')">保存 ＆ 印刷</button>
+    <div style="display: flex;">
+      <button class="save-btn btn-blue" onclick="saveAndProcess('保存済')">保存のみ</button>
+      <button id="save-btn" class="save-btn" onclick="saveAndProcess('発行済')">保存 ＆ 発行</button>
+    </div>
   </div>
 </div>
 
@@ -152,8 +156,6 @@ document.getElementById('main-order-no').addEventListener('keydown', async funct
   }
 });
 
-// --- バリデーション機能 ---
-
 function checkOrderDupe(el) {
   const val = el.value.trim();
   if (!val) { sync(); return; }
@@ -182,13 +184,11 @@ function checkLimitSequence(el) {
     if (otherOrder < curOrder && d.limit > newDate) errorMsg = `納期が「${d.name}」(順:${otherOrder}) より早くなっています。修正してください。`;
     if (otherOrder > curOrder && d.limit < newDate) errorMsg = `納期が「${d.name}」(順:${otherOrder}) より遅くなっています。修正してください。`;
   });
-
   if (errorMsg) {
     alert(errorMsg);
     el.value = ""; 
     sync();
-    // ここがポイント：setTimeoutでフォーカスを戻し、showPickerを呼び出せる状態にする
-    setTimeout(() => { el.focus(); el.showPicker(); }, 10);
+    el.focus();
   } else {
     sync();
     autoNext();
@@ -238,7 +238,7 @@ function handleEnter(e, nextId) {
   if (e.key === 'Enter') {
     e.preventDefault();
     if (nextId === 'SAVE') {
-      saveAndPrint('発行済');
+      saveAndProcess('発行済');
       return;
     }
     const nextEl = document.getElementById(nextId);
@@ -253,28 +253,39 @@ function clearPreview() {
   masterProcs.forEach((p, i) => { editData[i] = { name: p, order: "", st: "", limit: "" }; updatePreviewCell(i); });
 }
 
-// ステータス（保存済/発行済）を引数に取るように変更
-async function saveAndPrint(statusValue) {
+// 保存・通信のメイン処理（全データを送るように構成）
+async function saveAndProcess(statusText) {
   const orderNo = document.getElementById('main-order-no').value.trim();
   if (!orderNo) return alert("手配No未入力");
 
   let payload = [];
   masterProcs.forEach((name, i) => {
     const d = editData[i];
+    // 何らかのデータが入っている工程のみ送信
     if (d.order || d.st || d.limit) payload.push([name, d.order, d.st, d.limit]);
   });
 
-  setStatus("Saving...", "status-wait");
-  if (statusValue === '発行済') window.print();
+  setStatus("通信中...", "status-wait");
+  if (statusText === '発行済') window.print();
 
-  // GAS側にステータス情報を送る（引数 status を追加）
-  fetch(`${GAS_URL}?method=saveOnly&orderNo=${encodeURIComponent(orderNo)}&status=${encodeURIComponent(statusValue)}&allData=${encodeURIComponent(JSON.stringify(payload))}`)
-    .then(res => res.json())
-    .then(result => {
-      master.existingNos = result.newIndex;
-      setStatus("Ready", "status-ok");
-      log(`データ送信完了: [${statusValue}]`);
-    }).catch(() => setStatus("Error", "status-wait"));
+  // ★重要：確実にデータを全件届けるための構築
+  const params = new URLSearchParams({
+    method: 'saveOnly',
+    orderNo: orderNo,
+    status: statusText, 
+    allData: JSON.stringify(payload)
+  });
+
+  try {
+    const response = await fetch(`${GAS_URL}?${params.toString()}`);
+    const result = await response.json();
+    if (result.newIndex) master.existingNos = result.newIndex;
+    setStatus("完了", "status-ok");
+    log(`保存: ${orderNo} [${statusText}]`);
+  } catch (err) {
+    setStatus("通信エラー", "status-wait");
+    log("サーバー送信失敗。ネット接続を確認してください。");
+  }
 }
 
 function setStatus(txt, cls) {
