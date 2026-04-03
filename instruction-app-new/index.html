@@ -67,18 +67,22 @@
   let currentIdx = 0;
 </script>
 
-<?!= include('js_logic'); ?>  <?!= include('js_ui'); ?>
+<?!= include('js_logic'); ?>
+<?!= include('js_ui'); ?>
 
 <script>
+  // すべての include が終わった後に実行
   document.addEventListener('DOMContentLoaded', () => { 
-    console.log("Checking functions...");
-    console.log("fetchMaster exists:", typeof fetchMaster);
-    console.log("initUI exists:", typeof initUI);
+    console.log("DOMContentLoaded: Checking functions...");
     
+    // fetchMaster が定義されているか「型」でチェック
     if (typeof fetchMaster === 'function') {
+      console.log("Success: fetchMaster is ready.");
       fetchMaster(); 
     } else {
-      alert("js_logic が読み込めていません！ファイル名を確認してください。");
+      // ここでエラーが出る場合は、GASエディタ側のファイル名が 'js_logic' ではない確定的な証拠です
+      console.error("Error: fetchMaster is NOT defined.");
+      alert("致命的エラー: js_logic.html が正しく読み込まれていません。\nGASエディタの左側のファイル名が「js_logic」であることを確認してください。");
     }
   });
 </script>
