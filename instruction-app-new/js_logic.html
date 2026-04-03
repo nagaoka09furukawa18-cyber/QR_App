@@ -11,7 +11,7 @@ async function fetchMaster() {
     masterProcs = data.processes || [];
     initUI();
     updateCockpit();
-    updateStatusList(); // リストも初期読込
+    updateStatusList();
     document.getElementById('loading-screen').style.display = 'none';
     document.getElementById('main-content').style.display = 'block';
     document.getElementById('main-order-no').focus();
@@ -70,11 +70,8 @@ async function saveAndProcess(statusText) {
 
     setStatus("完了", "status-ok");
     resetFullForm();
-    updateStatusList(); // リストを最新にする
-
-  } catch (err) {
-    setStatus("通信エラー", "status-wait");
-  }
+    updateStatusList();
+  } catch (err) { setStatus("通信エラー", "status-wait"); }
 }
 
 function resetFullForm() {
@@ -113,7 +110,33 @@ function handleEnter(e, nextId) {
   }
 }
 
-// ※重複チェックなどのバリデーション関数もここに含まれます（元のコードのまま）
-function checkOrderDupe(el) { /* ...既存のまま... */ }
-function checkLimitSequence(el) { /* ...既存のまま... */ }
+// ★修正：バリデーションロジックを復元しました
+function checkOrderDupe(el) {
+  const val = el.value.trim();
+  if (!val) { sync(); return; }
+  let dupeProcName = "";
+  Object.keys(editData).forEach(idx => {
+    if (parseInt(idx) !== currentIdx && editData[idx].order === val) dupeProcName = editData[idx].name;
+  });
+  if (dupeProcName) {
+    alert(`指示順 [${val}] は「${dupeProcName}」と重複しています。`);
+    el.value = ""; el.focus(); sync();
+  } else { sync(); }
+}
+
+function checkLimitSequence(el) {
+  const newDate = el.value;
+  if (!newDate) { sync(); return; }
+  const curOrderStr = document.getElementById('inp-order').value;
+  if (!curOrderStr) { sync(); return; }
+  const curOrder = parseInt(curOrderStr);
+  let errorMsg = "";
+  Object.values(editData).forEach(d => {
+    if (!d.order || !d.limit || d.name === editData[currentIdx].name) return;
+    const otherOrder = parseInt(d.order);
+    if (otherOrder < curOrder && d.limit > newDate) errorMsg = `納期が「${d.name}」(順:${otherOrder}) より早くなっています。`;
+    if (otherOrder > curOrder && d.limit < newDate) errorMsg = `納期が「${d.name}」(順:${otherOrder}) より遅くなっています。`;
+  });
+  if (errorMsg) { alert(errorMsg); el.value = ""; sync(); el.focus(); } else { sync(); }
+}
 </script>
