@@ -1,23 +1,35 @@
 <script>
 /**
  * 通信および入力判定ロジック
+ * fetchMaster 関数をここで定義しています
  */
 
 async function fetchMaster() {
   try {
+    // index.html で定義した GAS_URL を使用します
     const res = await fetch(`${GAS_URL}?method=getMasters`);
     const data = await res.json();
+    
     master.existingNos = data.existingNos || {};
     masterProcs = data.processes || [];
+    
+    // 他のファイル (js_ui.html) にある関数を呼び出します
     initUI();
     updateCockpit();
     updateStatusList();
+    
+    // 画面を表示状態に切り替え
     document.getElementById('loading-screen').style.display = 'none';
     document.getElementById('main-content').style.display = 'block';
     document.getElementById('main-order-no').focus();
-  } catch (e) { document.getElementById('loading-screen').innerHTML = "通信エラー"; }
+    
+  } catch (e) {
+    console.error("fetchMaster Error:", e);
+    document.getElementById('loading-screen').innerHTML = "通信エラーが発生しました。再読み込みしてください。";
+  }
 }
 
+// その他のロジック関数（handleOrderSearch, saveAndProcessなど）を以下に継続...
 async function handleOrderSearch(val) {
   if (!val) return;
   clearPreview(); updateQR(val);
@@ -110,7 +122,6 @@ function handleEnter(e, nextId) {
   }
 }
 
-// ★修正：バリデーションロジックを復元しました
 function checkOrderDupe(el) {
   const val = el.value.trim();
   if (!val) { sync(); return; }
