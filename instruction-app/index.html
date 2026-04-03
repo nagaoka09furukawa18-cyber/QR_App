@@ -4,6 +4,7 @@
   <base target="_top">
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <style>
+    /* 既存のスタイルを維持 */
     body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 10px; background: #e9ecef; color: #333; }
     #loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #343a40; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; font-size: 24px; }
     .spinner { width: 50px; height: 50px; border: 5px solid rgba(255,255,255,0.3); border-top: 5px solid #fff; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
@@ -253,39 +254,68 @@ function clearPreview() {
   masterProcs.forEach((p, i) => { editData[i] = { name: p, order: "", st: "", limit: "" }; updatePreviewCell(i); });
 }
 
-// 保存・通信のメイン処理（全データを送るように構成）
+// --- ★ 修正版：保存・印刷・リセット処理 ---
 async function saveAndProcess(statusText) {
-  const orderNo = document.getElementById('main-order-no').value.trim();
+  const orderInput = document.getElementById('main-order-no');
+  const orderNo = orderInput.value.trim();
   if (!orderNo) return alert("手配No未入力");
 
   let payload = [];
   masterProcs.forEach((name, i) => {
     const d = editData[i];
-    // 何らかのデータが入っている工程のみ送信
     if (d.order || d.st || d.limit) payload.push([name, d.order, d.st, d.limit]);
   });
 
   setStatus("通信中...", "status-wait");
-  if (statusText === '発行済') window.print();
-
-  // ★重要：確実にデータを全件届けるための構築
-  const params = new URLSearchParams({
-    method: 'saveOnly',
-    orderNo: orderNo,
-    status: statusText, 
-    allData: JSON.stringify(payload)
-  });
 
   try {
-    const response = await fetch(`${GAS_URL}?${params.toString()}`);
+    // 1. まずはデータを「保存済」として送信（データ保護）
+    const saveParams = new URLSearchParams({
+      method: 'saveOnly',
+      orderNo: orderNo,
+      status: '保存済', 
+      allData: JSON.stringify(payload)
+    });
+    const response = await fetch(`${GAS_URL}?${saveParams.toString()}`);
     const result = await response.json();
     if (result.newIndex) master.existingNos = result.newIndex;
+
+    // 2. 「発行済」の場合のみ印刷ダイアログを出す
+    if (statusText === '発行済') {
+      window.print(); // ここでユーザーの印刷操作を待機
+
+      // 印刷ダイアログ終了後、即座にステータスを「発行済」に更新
+      const updateUrl = `${GAS_URL}?method=updateStatusOnly&orderNo=${encodeURIComponent(orderNo)}&status=発行済`;
+      await fetch(updateUrl);
+      log(`発行完了: ${orderNo}`);
+    } else {
+      log(`保存完了: ${orderNo}`);
+    }
+
     setStatus("完了", "status-ok");
-    log(`保存: ${orderNo} [${statusText}]`);
+    
+    // 3. 全処理完了後、画面を初期化して新規入力へ
+    resetFullForm();
+
   } catch (err) {
     setStatus("通信エラー", "status-wait");
-    log("サーバー送信失敗。ネット接続を確認してください。");
+    log("サーバー送信失敗。接続を確認してください。");
   }
+}
+
+// --- ★ 新規追加：画面リセット関数 ---
+function resetFullForm() {
+  const orderInput = document.getElementById('main-order-no');
+  orderInput.value = ""; // 手配Noクリア
+  
+  clearPreview(); // 内部データとテーブル表示クリア
+  updateQR("");   // QR表示クリア
+  
+  currentIdx = 0; // 工程を先頭に戻す
+  updateCockpit();
+  
+  orderInput.focus(); // 手配Noにフォーカスを戻す
+  log("リセット完了。次の手配Noを入力してください。");
 }
 
 function setStatus(txt, cls) {
