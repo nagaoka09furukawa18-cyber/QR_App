@@ -266,40 +266,35 @@ async function saveAndProcess(statusText) {
     if (d.order || d.st || d.limit) payload.push([name, d.order, d.st, d.limit]);
   });
 
-  setStatus("通信中...", "status-wait");
+  setStatus("処理中...", "status-wait");
 
   try {
-    // 1. まずはデータを「保存済」として送信（データ保護）
+    // 1. 保存実行
     const saveParams = new URLSearchParams({
       method: 'saveOnly',
       orderNo: orderNo,
       status: '保存済', 
       allData: JSON.stringify(payload)
     });
-    const response = await fetch(`${GAS_URL}?${saveParams.toString()}`);
-    const result = await response.json();
-    if (result.newIndex) master.existingNos = result.newIndex;
+    await fetch(`${GAS_URL}?${saveParams.toString()}`);
 
-    // 2. 「発行済」の場合のみ印刷ダイアログを出す
+    // 2. 「保存＆発行」なら即印刷、即ステータス更新
     if (statusText === '発行済') {
-      window.print(); // ここでユーザーの印刷操作を待機
-
-      // 印刷ダイアログ終了後、即座にステータスを「発行済」に更新
+      // ステータス更新（非同期で裏で走らせる）
       const updateUrl = `${GAS_URL}?method=updateStatusOnly&orderNo=${encodeURIComponent(orderNo)}&status=発行済`;
-      await fetch(updateUrl);
-      log(`発行完了: ${orderNo}`);
-    } else {
-      log(`保存完了: ${orderNo}`);
+      fetch(updateUrl); 
+
+      // 印刷画面を起動（ここでブラウザの印刷画面が出ます）
+      window.print(); 
     }
 
-    setStatus("完了", "status-ok");
-    
-    // 3. 全処理完了後、画面を初期化して新規入力へ
+    // 3. 印刷画面が閉じるのを待たず、即座に画面をリセットして次へ
     resetFullForm();
+    setStatus("完了", "status-ok");
 
   } catch (err) {
-    setStatus("通信エラー", "status-wait");
-    log("サーバー送信失敗。接続を確認してください。");
+    setStatus("エラー", "status-wait");
+    log("送信失敗しました。");
   }
 }
 
