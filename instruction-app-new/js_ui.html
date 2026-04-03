@@ -58,9 +58,6 @@ function log(m) {
   if(div) { div.innerHTML += `<div>> ${m}</div>`; div.scrollTop = div.scrollHeight; }
 }
 
-/**
- * 発行ステータスリストの更新
- */
 async function updateStatusList() {
   const tbody = document.getElementById('status-table-body');
   try {
@@ -81,7 +78,7 @@ function loadOrderQuick(no) {
   const input = document.getElementById('main-order-no');
   input.value = no;
   const event = new KeyboardEvent('keydown', { key: 'Enter' });
-  input.dispatchEvent(event); // Enterイベントを擬似的に発生させて検索実行
+  input.dispatchEvent(event);
   window.scrollTo(0,0);
 }
 </script>
