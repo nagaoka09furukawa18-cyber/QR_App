@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+  <?!= include('css'); ?>
+</head>
+<body>
+
+<div id="loading-screen"><div class="spinner"></div><div>システム同期中...</div></div>
+
+<div id="main-content">
+  <div id="debug-log"><div>[System Log v7.0 - 分割管理移行完了]</div></div>
+  <div class="top-bar"><strong>指示書作成コックピット v7.0</strong><div id="status-display" class="status-ok">Ready</div></div>
+
+  <div id="print-area">
+    <div class="header-flex">
+      <div class="display-order-no">手配No：<span id="display-no-val">---</span></div>
+      <div id="qr-container"><canvas id="qrcode"></canvas></div>
+    </div>
+    <table class="preview-table">
+      <thead><tr id="tr-head"><th>工程</th></tr></thead>
+      <tr id="tr-order"><th>指示順</th></tr>
+      <tr id="tr-st"><th>ST</th></tr>
+      <tr id="tr-limit"><th>納期</th></tr>
+    </table>
+  </div>
+
+  <div class="center-input-bar">
+    <div style="font-size: 14px; font-weight: bold; color: #007bff;">手配No：</div>
+    <input type="text" id="main-order-no" placeholder="スキャンまたは入力" autocomplete="off">
+  </div>
+
+  <div id="main-controls">
+    <div class="proc-nav">
+      <button type="button" class="nav-btn" onclick="moveProc(-1)">◁</button>
+      <div id="target-proc-name">---</div>
+      <button type="button" class="nav-btn" onclick="moveProc(1)">▷</button>
+    </div>
+    <div class="detail-inputs">
+      順: <input type="number" id="inp-order" class="inp-sml" onchange="checkOrderDupe(this)" onfocus="setHighlight('o')" onkeydown="handleEnter(event, 'inp-st')">
+      ST: <input type="number" id="inp-st" class="inp-med" oninput="sync()" onfocus="setHighlight('s')" onkeydown="handleEnter(event, 'inp-limit')">
+      納期: <input type="date" id="inp-limit" onchange="checkLimitSequence(this)" onfocus="setHighlight('l')" onkeydown="handleEnter(event, 'SAVE')" onclick="this.showPicker()">
+    </div>
+    <div style="display: flex;">
+      <button class="save-btn btn-blue" onclick="saveAndProcess('保存済')">保存のみ</button>
+      <button class="save-btn" onclick="saveAndProcess('発行済')">保存 ＆ 発行</button>
+    </div>
+  </div>
+
+  <div id="status-list-section">
+    <h3 style="margin:0 0 10px 0; color:#343a40;">発行ステータス一覧（黄色は未発行）</h3>
+    <table id="status-table">
+      <thead>
+        <tr style="background:#f8f9fa;"><th>手配No</th><th>ステータス</th></tr>
+      </thead>
+      <tbody id="status-table-body">
+        </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // グローバル変数
+  const GAS_URL = "あなたの新しいウェブアプリURL";
+  let editData = {};
+  let master = { existingNos: {} };
+  let masterProcs = [];
+  let currentIdx = 0;
+
+  window.onload = () => { fetchMaster(); };
+
+  // 手配No入力イベントの紐付け
+  document.getElementById('main-order-no').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') handleOrderSearch(this.value.trim());
+  });
+</script>
+
+<?!= include('js_ui'); ?>
+<?!= include('js_logic'); ?>
+
+</body>
+</html>
