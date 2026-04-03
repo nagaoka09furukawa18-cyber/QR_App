@@ -266,35 +266,41 @@ async function saveAndProcess(statusText) {
     if (d.order || d.st || d.limit) payload.push([name, d.order, d.st, d.limit]);
   });
 
-  setStatus("処理中...", "status-wait");
+  setStatus("通信中...", "status-wait");
 
   try {
-    // 1. 保存実行
+    // 1. まず「保存済」としてデータを確定（ボタン投下直後）
     const saveParams = new URLSearchParams({
       method: 'saveOnly',
       orderNo: orderNo,
       status: '保存済', 
       allData: JSON.stringify(payload)
     });
-    await fetch(`${GAS_URL}?${saveParams.toString()}`);
+    const response = await fetch(`${GAS_URL}?${saveParams.toString()}`);
+    const result = await response.json();
+    if (result.newIndex) master.existingNos = result.newIndex;
 
-    // 2. 「保存＆発行」なら即印刷、即ステータス更新
+    // 2. 「保存＆発行」ボタンだった場合のみ印刷へ
     if (statusText === '発行済') {
-      // ステータス更新（非同期で裏で走らせる）
-      const updateUrl = `${GAS_URL}?method=updateStatusOnly&orderNo=${encodeURIComponent(orderNo)}&status=発行済`;
-      fetch(updateUrl); 
-
-      // 印刷画面を起動（ここでブラウザの印刷画面が出ます）
+      // ブラウザの印刷画面を起動
       window.print(); 
+
+      // 印刷アクション（印刷ボタン投下）に合わせて「発行済」に更新
+      // ※ダイアログを閉じたタイミングで実行されます
+      const updateUrl = `${GAS_URL}?method=updateStatusOnly&orderNo=${encodeURIComponent(orderNo)}&status=発行済`;
+      await fetch(updateUrl); 
+      log(`発行済に更新完了: ${orderNo}`);
+    } else {
+      log(`保存完了: ${orderNo}`);
     }
 
-    // 3. 印刷画面が閉じるのを待たず、即座に画面をリセットして次へ
-    resetFullForm();
+    // 3. 【自動戻り】全ての処理が終わったら画面をクリアして新規入力状態へ
     setStatus("完了", "status-ok");
+    resetFullForm(); 
 
   } catch (err) {
-    setStatus("エラー", "status-wait");
-    log("送信失敗しました。");
+    setStatus("通信エラー", "status-wait");
+    log("サーバー送信失敗。");
   }
 }
 
