@@ -105,13 +105,27 @@
         const scanNo = String(no).trim();
         state = { tehai: scanNo, proc: '', staff: '', mac: '', targetRow: -1, isEndMode: false };
         document.getElementById('tehaiDisplay').innerHTML = `手配No：<span>${scanNo}</span>`;
+        
+        // 作業中リストから探す
         const work = (masters.activeWorks || []).find(w => String(w.tehai).trim() === scanNo);
+        
         showScreen('screenDetail');
+        
         if (work) {
-            state.isEndMode = true; state.proc = work.proc; state.staff = work.staff; state.mac = work.mac; state.targetRow = work.row;
+            // 2回目以降（作業中データあり）
+            state.isEndMode = true; 
+            state.proc = work.proc; 
+            state.staff = work.staff; 
+            state.mac = work.mac; 
+            state.targetRow = work.row;
+            
+            // 情報を自動セットして完了画面へ
+            refreshSlots();
             renderEndUI();
         } else {
-            state.isEndMode = false; renderStartProcUI();
+            // 1回目（新規開始）
+            state.isEndMode = false; 
+            renderStartProcUI();
         }
     }
 
