@@ -146,13 +146,24 @@
         refreshSlots('proc');
         const area = document.getElementById('button-area');
         area.innerHTML = "";
-        document.getElementById('button-title').innerText = "担当工程を選択してください";
+        
         const config = masters.device ? masters.device.config : "";
-        config.split(',').forEach(p => {
+        const procList = config.split(',').map(p => p.trim()).filter(Boolean);
+
+        // ■ 追加：工程が1つなら即座に決定する
+        if (procList.length === 1) {
+            state.proc = procList[0];
+            renderStartStaffUI();
+            return;
+        }
+
+        // 工程が複数ある場合は従来通りボタンを表示
+        document.getElementById('button-title').innerText = "担当工程を選択してください";
+        procList.forEach(p => {
             const btn = document.createElement('button');
             btn.className = "btn-blue";
-            btn.innerText = p.trim();
-            btn.onclick = () => { state.proc = p.trim(); renderStartStaffUI(); };
+            btn.innerText = p;
+            btn.onclick = () => { state.proc = p; renderStartStaffUI(); };
             area.appendChild(btn);
         });
     }
