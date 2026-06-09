@@ -28,7 +28,6 @@
     </style>
 </head>
 <body>
-
 <div class="card">
     <div id="screenWait" class="screen active"><p>データ同期中...</p></div>
     <div id="screenMain" class="screen">
@@ -62,7 +61,6 @@
         <button class="btn-green btn-main" onclick="saveConfig()">設定保存</button>
     </div>
 </div>
-
 <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbykO0iW9VjA_7ykpKQpnZbfeWNF2PGnfAaxI-uicraMisW5prqTX1ymcjSH4sjvriYW/exec";
     let state = { tehai: '', proc: '', staff: '', mac: '', targetRow: -1, isEndMode: false };
@@ -70,219 +68,93 @@
     let deviceId = localStorage.getItem('deviceId') || 'ID-' + Math.random().toString(36).substring(2, 8).toUpperCase();
     localStorage.setItem('deviceId', deviceId);
 
-    // 通信を安定させるための共通関数
-    async function safeFetch(url) {
-        const resp = await fetch(url);
-        const text = await resp.text();
-        return JSON.parse(text);
-    }
-
+    async function safeFetch(url) { const resp = await fetch(url); const text = await resp.text(); return JSON.parse(text); }
     async function init() {
         showScreen('screenWait');
         try {
-            const data = await safeFetch(GAS_URL + "?action=getAllMasters&deviceId=" + deviceId);
-            console.log("GASから届いたデータ:", data); // これで中身がわかります
-            
-            masters = data;
-
-            // どのデータが欠けているか判別するためのテスト表示
-            if (masters.device) {
-                updateStationDisplay(masters.device.name, masters.device.config);
-                document.getElementById('btnStartScan').style.display = "block";
-            } else {
-                // ここで原因を特定
-                document.getElementById('currentStation').innerText = 
-                    "データは届きましたが、この端末(ID:" + deviceId + ")の情報がスプレッドシートに見当たりません。";
-                document.getElementById('btnStartScan').style.display = "none";
-                console.warn("端末情報が空です。T_端末シートを確認してください。");
-            }
-        } catch(e) { 
-            console.error("通信エラー:", e); 
-            document.getElementById('currentStation').innerText = "通信エラーが発生しました。";
-        }
+            masters = await safeFetch(GAS_URL + "?action=getAllMasters&deviceId=" + deviceId);
+            if (masters.device) { updateStationDisplay(masters.device.name, masters.device.config); document.getElementById('btnStartScan').style.display = "block"; }
+            else { document.getElementById('currentStation').innerText = "端末未登録"; }
+        } catch(e) { console.error(e); }
         showScreen('screenMain');
     }
-
     function onScanSuccess(no) {
         const scanNo = String(no).trim();
         state = { tehai: scanNo, proc: '', staff: '', mac: '', targetRow: -1, isEndMode: false };
         document.getElementById('tehaiDisplay').innerHTML = `手配No：<span>${scanNo}</span>`;
         const work = (masters.activeWorks || []).find(w => String(w.tehai).trim() === scanNo);
         showScreen('screenDetail');
-        if (work) {
-            state.isEndMode = true; state.proc = work.proc; state.staff = work.staff; state.mac = work.mac; state.targetRow = work.row;
-            refreshSlots(); renderEndUI();
-        } else {
-            state.isEndMode = false; renderStartProcUI();
-        }
+        if (work) { state.isEndMode = true; state.proc = work.proc; state.staff = work.staff; state.mac = work.mac; refreshSlots(); renderEndUI(); }
+        else { state.isEndMode = false; renderStartProcUI(); }
     }
-
     function renderEndUI() {
-        refreshSlots();
-        const area = document.getElementById('button-area');
-        area.innerHTML = "";
-        document.getElementById('button-title').innerText = "【完了モード】内容を確認して送信してください";
-        const btn = document.createElement('button');
-        btn.className = "btn-main btn-green"; btn.innerText = "完了報告を送る";
-        btn.onclick = () => saveRecord("end");
-        area.appendChild(btn);
+        refreshSlots(); const area = document.getElementById('button-area'); area.innerHTML = "";
+        document.getElementById('button-title').innerText = "完了モード";
+        const btn = document.createElement('button'); btn.className = "btn-main btn-green"; btn.innerText = "完了報告を送る";
+        btn.onclick = () => saveRecord("end"); area.appendChild(btn);
     }
-
     function renderStartProcUI() {
-        state.proc = ''; state.staff = ''; state.mac = '';
-        refreshSlots('proc');
-        const area = document.getElementById('button-area');
-        area.innerHTML = "";
-        const config = masters.device ? masters.device.config : "";
-        const procList = config.split(',').map(p => p.trim()).filter(Boolean);
+        state.proc = ''; state.staff = ''; state.mac = ''; refreshSlots('proc'); const area = document.getElementById('button-area'); area.innerHTML = "";
+        const procList = (masters.device?.config || "").split(',').map(p => p.trim()).filter(Boolean);
         if (procList.length === 1) { state.proc = procList[0]; renderStartStaffUI(); return; }
-        document.getElementById('button-title').innerText = "担当工程を選択してください";
-        procList.forEach(p => {
-            const btn = document.createElement('button');
-            btn.className = "btn-blue"; btn.innerText = p;
-            btn.onclick = () => { state.proc = p; renderStartStaffUI(); };
-            area.appendChild(btn);
-        });
+        document.getElementById('button-title').innerText = "工程選択";
+        procList.forEach(p => { const btn = document.createElement('button'); btn.className = "btn-blue"; btn.innerText = p; btn.onclick = () => { state.proc = p; renderStartStaffUI(); }; area.appendChild(btn); });
     }
-
     function renderStartStaffUI() {
-        refreshSlots('staff');
-        const area = document.getElementById('button-area');
-        area.innerHTML = "";
-        document.getElementById('button-title').innerText = "作業者を選択してください";
-        const filtered = masters.staffs.filter(r => String(r[0]).trim() === state.proc);
-        const list = filtered.map(r => String(r[1]).split(',').map(s => s.trim())).flat().filter(Boolean);
-        if (list.length <= 1) { state.staff = list[0] || "-"; renderStartMacUI(); } 
-        else {
-            list.forEach(s => {
-                const btn = document.createElement('button');
-                btn.className = "btn-green"; btn.innerText = s;
-                btn.onclick = () => { state.staff = s; renderStartMacUI(); };
-                area.appendChild(btn);
-            });
-        }
+        refreshSlots('staff'); const area = document.getElementById('button-area'); area.innerHTML = "";
+        document.getElementById('button-title').innerText = "作業者選択";
+        const list = masters.staffs.filter(r => String(r[0]).trim() === state.proc).map(r => String(r[1]).split(',')).flat().map(s => s.trim()).filter(Boolean);
+        if (list.length <= 1) { state.staff = list[0] || "-"; renderStartMacUI(); }
+        else { list.forEach(s => { const btn = document.createElement('button'); btn.className = "btn-green"; btn.innerText = s; btn.onclick = () => { state.staff = s; renderStartMacUI(); }; area.appendChild(btn); }); }
     }
-
     function renderStartMacUI() {
-        refreshSlots('mac');
-        const area = document.getElementById('button-area');
-        area.innerHTML = "";
-        document.getElementById('button-title').innerText = "装置を選択してください";
-        const deviceRows = masters.machines.filter(r => String(r[0]).trim() === state.proc && String(r[1]).split(',').map(s => s.trim()).includes(state.staff));
-        let deviceList = [...new Set(deviceRows.map(r => String(r[2]).split(',').map(d => d.trim())).flat())].filter(Boolean);
-        const finalize = (m) => {
-            state.mac = m; refreshSlots(); area.innerHTML = "";
-            document.getElementById('button-title').innerText = "【開始モード】内容を確認して送信してください";
-            const btn = document.createElement('button');
-            btn.className = "btn-main btn-blue"; btn.innerText = "開始報告を送る";
-            btn.onclick = () => saveRecord("start");
-            area.appendChild(btn);
-        };
-        if (deviceList.length === 0) finalize("-");
-        else if (deviceList.length === 1) finalize(deviceList[0]);
-        else deviceList.forEach(m => {
-            const btn = document.createElement('button');
-            btn.className = "btn-blue"; btn.style.width = "100%"; btn.innerText = m;
-            btn.onclick = () => finalize(m); area.appendChild(btn);
-        });
+        refreshSlots('mac'); const area = document.getElementById('button-area'); area.innerHTML = "";
+        document.getElementById('button-title').innerText = "装置選択";
+        const deviceList = [...new Set(masters.machines.filter(r => String(r[0]).trim() === state.proc && String(r[1]).split(',').map(s=>s.trim()).includes(state.staff)).map(r => String(r[2]).split(',')).flat().map(d => d.trim()))].filter(Boolean);
+        const finalize = (m) => { state.mac = m; refreshSlots(); area.innerHTML = ""; document.getElementById('button-title').innerText = "開始報告"; const btn = document.createElement('button'); btn.className = "btn-main btn-blue"; btn.innerText = "開始報告を送る"; btn.onclick = () => saveRecord("start"); area.appendChild(btn); };
+        if (deviceList.length <= 1) finalize(deviceList[0] || "-");
+        else deviceList.forEach(m => { const btn = document.createElement('button'); btn.className = "btn-blue"; btn.innerText = m; btn.onclick = () => finalize(m); area.appendChild(btn); });
     }
-
     async function saveRecord(type) {
         document.getElementById('button-area').innerHTML = "<p>送信中...</p>";
         const url = new URL(GAS_URL);
-        url.searchParams.append('action', 'saveWorkRecord');
-        url.searchParams.append('type', type);
-        url.searchParams.append('tehaiNo', state.tehai);
-        url.searchParams.append('process', state.proc);
-        url.searchParams.append('staff', state.staff);
-        url.searchParams.append('machine', state.mac);
-        url.searchParams.append('deviceId', deviceId);
-        try {
-            await safeFetch(url);
-            alert(type === "end" ? "完了しました" : "開始しました");
-        } catch(e) { alert("送信に失敗しました"); }
+        url.searchParams.append('action', 'saveWorkRecord'); url.searchParams.append('type', type); url.searchParams.append('tehaiNo', state.tehai); url.searchParams.append('process', state.proc); url.searchParams.append('staff', state.staff); url.searchParams.append('machine', state.mac); url.searchParams.append('deviceId', deviceId);
+        try { await safeFetch(url); alert("送信完了"); } catch(e) { alert("送信失敗"); }
         resetToMain(); init();
     }
-
-    function refreshSlots(activeKey) {
-        ['proc', 'staff', 'mac'].forEach(k => {
-            const el = document.getElementById('slot-' + k);
-            document.getElementById('val-' + k).innerText = state[k] || "---";
-            el.classList.remove('active-slot', 'disabled');
-            if (activeKey === k) el.classList.add('active-slot');
-            else if (!state[k]) el.classList.add('disabled');
-        });
+    function refreshSlots(activeKey) { ['proc', 'staff', 'mac'].forEach(k => { const el = document.getElementById('slot-'+k); document.getElementById('val-'+k).innerText = state[k] || "---"; el.className = 'select-slot ' + (activeKey===k ? 'active-slot' : (!state[k] ? 'disabled' : '')); }); }
+    async function startScan() { showScreen('screenScanner'); const s = new Html5Qrcode("reader"); await s.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => { s.stop().then(() => onScanSuccess(txt)); }).catch(() => resetToMain()); }
+    function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+    function resetToMain() { state = { tehai: '', proc: '', staff: '', mac: '', targetRow: -1 }; showScreen('screenMain'); }
+    function updateStationDisplay(n, c) { document.getElementById('currentStation').innerText = `端末: ${n}\n工程: ${c}`; }
+    function authAdmin() { document.getElementById('adminPwInput').value = ""; showScreen('screenAuth'); }
+    function togglePw() { document.getElementById('adminPwInput').type = document.getElementById('showPw').checked ? "text" : "password"; }
+    async function checkPassword() {
+        const input = document.getElementById('adminPwInput').value.trim();
+        const btn = document.getElementById('adminLoginBtn'); btn.disabled = true;
+        try {
+            const res = await safeFetch(GAS_URL + "?action=getAdminPassword");
+            if (String(input) === String(res.password || "").trim()) loadConfigScreen(); else alert("パスワード違い");
+        } catch(e) { alert("通信エラー"); }
+        btn.disabled = false;
     }
-
-    async function startScan() {
-        showScreen('screenScanner');
-        const scanner = new Html5Qrcode("reader");
-        await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => { scanner.stop().then(() => onScanSuccess(txt)); }).catch(() => resetToMain());
-    }
-
-    function showScreen(id) {
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-    }
-
-    function resetToMain() {
-        state = { tehai: '', proc: '', staff: '', mac: '', targetRow: -1 };
-        showScreen('screenMain');
-    }
-
-    function updateStationDisplay(name, config) {
-        document.getElementById('currentStation').innerText = `端末名: ${name}\n担当工程: ${config}`;
-    }
-
-    function authAdmin() {
-        document.getElementById('adminPwInput').value = "";
-        showScreen('screenAuth');
-    }
-
-    function togglePw() {
-        document.getElementById('adminPwInput').type = document.getElementById('showPw').checked ? "text" : "password";
-    }
-
-    } else if (action === "getAdminPassword") {
-      const sheet = ss.getSheetByName("M_設定");
-      const data = sheet.getDataRange().getValues();
-      // デバッグ：シート全体の内容をログに出す（Apps Scriptの実行ログで確認）
-      Logger.log(data); 
-      const row = data.find(r => String(r[0]) === "AdminPasswordozawa");
-      result = { password: row ? String(row[1]) : "" };
-    }
-
     function loadConfigScreen() {
-        showScreen('screenConfig');
-        document.getElementById('inputDeviceName').value = masters.device ? masters.device.name : "";
+        showScreen('screenConfig'); document.getElementById('inputDeviceName').value = masters.device?.name || "";
         const list = document.getElementById('configList'); list.innerHTML = "";
-        const currentConfig = (masters.device?.config || "").split(',').map(s=>s.trim());
-        (masters.processes || []).forEach(p => {
-            const b = document.createElement('button');
-            b.innerText = p; b.style.margin = "3px";
-            const isSelected = currentConfig.includes(p);
-            b.className = isSelected ? "btn-blue" : "btn-gray";
-            b.dataset.selected = isSelected ? "true" : "false";
-            b.onclick = () => {
-                const sel = b.dataset.selected === "true";
-                b.className = sel ? "btn-gray" : "btn-blue";
-                b.dataset.selected = sel ? "false" : "true";
-            };
+        const current = (masters.device?.config || "").split(',').map(s=>s.trim());
+        masters.processes.forEach(p => {
+            const b = document.createElement('button'); b.innerText = p; const sel = current.includes(p); b.className = sel ? "btn-blue" : "btn-gray"; b.dataset.selected = sel ? "true" : "false";
+            b.onclick = () => { b.dataset.selected = (b.dataset.selected === "true" ? "false" : "true"); b.className = b.dataset.selected === "true" ? "btn-blue" : "btn-gray"; };
             list.appendChild(b);
         });
     }
-
     async function saveConfig() {
         const name = document.getElementById('inputDeviceName').value.trim();
         const sel = Array.from(document.querySelectorAll('#configList button')).filter(b => b.dataset.selected === "true").map(b => b.innerText).join(',');
         if(!name || !sel) return alert("内容を確認してください");
         showScreen('screenWait');
-        try {
-            await safeFetch(GAS_URL + "?action=saveDeviceConfig&deviceId=" + deviceId + "&deviceName=" + encodeURIComponent(name) + "&processList=" + encodeURIComponent(sel));
-            setTimeout(() => { location.reload(); }, 800);
-        } catch(e) { alert("保存に失敗しました"); showScreen('screenConfig'); }
+        try { await safeFetch(GAS_URL + "?action=saveDeviceConfig&deviceId=" + deviceId + "&deviceName=" + encodeURIComponent(name) + "&processList=" + encodeURIComponent(sel)); setTimeout(() => location.reload(), 800); } catch(e) { alert("失敗"); showScreen('screenConfig'); }
     }
-
     window.onload = init;
 </script>
 </body>
