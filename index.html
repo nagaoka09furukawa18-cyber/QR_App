@@ -80,12 +80,26 @@
     async function init() {
         showScreen('screenWait');
         try {
-            masters = await safeFetch(GAS_URL + "?action=getAllMasters&deviceId=" + deviceId);
+            const data = await safeFetch(GAS_URL + "?action=getAllMasters&deviceId=" + deviceId);
+            console.log("GASから届いたデータ:", data); // これで中身がわかります
+            
+            masters = data;
+
+            // どのデータが欠けているか判別するためのテスト表示
             if (masters.device) {
                 updateStationDisplay(masters.device.name, masters.device.config);
                 document.getElementById('btnStartScan').style.display = "block";
+            } else {
+                // ここで原因を特定
+                document.getElementById('currentStation').innerText = 
+                    "データは届きましたが、この端末(ID:" + deviceId + ")の情報がスプレッドシートに見当たりません。";
+                document.getElementById('btnStartScan').style.display = "none";
+                console.warn("端末情報が空です。T_端末シートを確認してください。");
             }
-        } catch(e) { console.error(e); }
+        } catch(e) { 
+            console.error("通信エラー:", e); 
+            document.getElementById('currentStation').innerText = "通信エラーが発生しました。";
+        }
         showScreen('screenMain');
     }
 
