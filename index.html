@@ -88,6 +88,7 @@
     localStorage.setItem('deviceId', deviceId);
 
     async function init() {
+        alert("URL確認: " + GAS_URL); // 【重要】これを入れてください
         showScreen('screenWait');
         try {
             const url = GAS_URL + "?action=getAllMasters&deviceId=" + deviceId;
