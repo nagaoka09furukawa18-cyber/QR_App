@@ -230,25 +230,32 @@
         }
     }
 
-    async function saveRecord(type) {
-        document.getElementById('button-area').innerHTML = "<p>送信中...</p>";
-        const params = new URLSearchParams({
-            action: 'saveWorkRecord', type: type, tehaiNo: state.tehai,
-            process: state.proc, staff: state.staff, machine: state.mac,
-            row: state.targetRow, deviceId: deviceId
-        });
-        fetch(GAS_URL + "?" + params.toString(), { mode: 'no-cors' });
-        if (type === "end") {
-            masters.activeWorks = masters.activeWorks.filter(w => !(w.tehai == state.tehai && w.proc == state.proc));
-        }
+    // GitHub側のスクリプト内
+async function saveRecord(type) {
+    document.getElementById('button-area').innerHTML = "<p>送信中...</p>";
+    
+    // パラメータを整理
+    const url = new URL(GAS_URL);
+    url.searchParams.append('action', 'saveWorkRecord');
+    url.searchParams.append('type', type);
+    url.searchParams.append('tehaiNo', state.tehai);
+    url.searchParams.append('process', state.proc);
+    url.searchParams.append('staff', state.staff);
+    url.searchParams.append('machine', state.mac);
+    url.searchParams.append('deviceId', deviceId);
+
+    try {
+        // no-cors を外す（GAS側がCORS対応のレスポンスを返すようにするため）
+        const resp = await fetch(url.toString());
+        const result = await resp.json();
         alert(type === "end" ? "完了しました" : "開始しました");
-        resetToMain();
-        setTimeout(async () => {
-            const resp = await fetch(GAS_URL + "?action=getAllMasters&deviceId=" + deviceId);
-            const d = await resp.json();
-            masters.activeWorks = d.activeWorks;
-        }, 1000);
+    } catch(e) {
+        console.error(e);
+        alert("送信に失敗しました");
     }
+    resetToMain();
+    init(); // データ再読み込み
+}
 
     function refreshSlots(activeKey) {
         const keys = ['proc', 'staff', 'mac'];
