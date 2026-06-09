@@ -246,7 +246,7 @@ async function saveRecord(type) {
 
     try {
         // no-cors を外す（GAS側がCORS対応のレスポンスを返すようにするため）
-        const resp = await fetch(url.toString());
+        const resp = await fetch(url);
         const result = await resp.json();
         alert(type === "end" ? "完了しました" : "開始しました");
     } catch(e) {
