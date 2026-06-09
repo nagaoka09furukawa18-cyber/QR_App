@@ -131,11 +131,27 @@
     function togglePw() { document.getElementById('adminPwInput').type = document.getElementById('showPw').checked ? "text" : "password"; }
     async function checkPassword() {
         const input = document.getElementById('adminPwInput').value.trim();
-        const btn = document.getElementById('adminLoginBtn'); btn.disabled = true;
+        const btn = document.getElementById('adminLoginBtn');
+        btn.disabled = true;
+        
         try {
             const res = await safeFetch(GAS_URL + "?action=getAdminPassword");
-            if (String(input) === String(res.password || "").trim()) loadConfigScreen(); else alert("パスワード違い");
-        } catch(e) { alert("通信エラー"); }
+            
+            // 【重要】比較の瞬間に中身をコンソールへ表示
+            console.log("【デバッグ】入力値:", "[" + input + "]");
+            console.log("【デバッグ】DBから届いた値:", "[" + (res.password || "") + "]");
+
+            if (String(input) === String(res.password || "").trim()) {
+                console.log("パスワード一致しました");
+                loadConfigScreen();
+            } else {
+                console.warn("パスワード不一致です");
+                alert("パスワードが違います。\nコンソール(F12)で値を確認してください。");
+            }
+        } catch(e) { 
+            console.error("通信エラー詳細:", e);
+            alert("通信エラー"); 
+        }
         btn.disabled = false;
     }
     function loadConfigScreen() {
