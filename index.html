@@ -87,19 +87,31 @@
     let deviceId = localStorage.getItem('deviceId') || 'ID-' + Math.random().toString(36).substring(2, 8).toUpperCase();
     localStorage.setItem('deviceId', deviceId);
 
-    async function init() {
-        showScreen('screenWait');
-        document.getElementById('displayId').innerText = "端末ID: " + deviceId;
-        try {
-            const resp = await fetch(GAS_URL + "?action=getAllMasters&deviceId=" + deviceId);
-            masters = await resp.json();
-            if (masters.device) {
-                updateStationDisplay(masters.device.name, masters.device.config);
-                document.getElementById('btnStartScan').style.display = "block";
-            }
-        } catch(e) { console.error(e); }
-        showScreen('screenMain');
+   async function init() {
+    showScreen('screenWait');
+    try {
+        const url = GAS_URL + "?action=getAllMasters&deviceId=" + deviceId;
+        const resp = await fetch(url);
+        
+        // 【事実確認用デバッグ】レスポンスの詳細を表示
+        console.log("Response Status:", resp.status);
+        console.log("Response Headers:", [...resp.headers.entries()]);
+        
+        if (!resp.ok) {
+            const text = await resp.text();
+            console.error("Server Error Response:", text);
+            throw new Error("HTTP error " + resp.status);
+        }
+        
+        masters = await resp.json();
+        // ... (以下略)
+    } catch(e) {
+        // 【事実確認用デバッグ】エラー発生時の詳細を画面にも表示
+        console.error("Fetch Details:", e);
+        alert("通信失敗: " + e.message + "\nコンソール(F12)で詳細を確認してください");
     }
+    showScreen('screenMain');
+}
 
     function onScanSuccess(no) {
         const scanNo = String(no).trim();
