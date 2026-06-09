@@ -243,16 +243,13 @@
         document.getElementById('adminPwInput').type = document.getElementById('showPw').checked ? "text" : "password";
     }
 
-    async function checkPassword() {
-        const input = document.getElementById('adminPwInput').value.trim();
-        const btn = document.getElementById('adminLoginBtn');
-        btn.disabled = true;
-        try {
-            const res = await safeFetch(GAS_URL + "?action=getAdminPassword");
-            if (String(input) === String(res.password).trim()) loadConfigScreen();
-            else alert("パスワードが違います");
-        } catch (e) { alert("通信エラー"); }
-        btn.disabled = false;
+    } else if (action === "getAdminPassword") {
+      const sheet = ss.getSheetByName("M_設定");
+      const data = sheet.getDataRange().getValues();
+      // デバッグ：シート全体の内容をログに出す（Apps Scriptの実行ログで確認）
+      Logger.log(data); 
+      const row = data.find(r => String(r[0]) === "AdminPasswordozawa");
+      result = { password: row ? String(row[1]) : "" };
     }
 
     function loadConfigScreen() {
