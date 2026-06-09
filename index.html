@@ -87,57 +87,50 @@
     let deviceId = localStorage.getItem('deviceId') || 'ID-' + Math.random().toString(36).substring(2, 8).toUpperCase();
     localStorage.setItem('deviceId', deviceId);
 
-   async function init() {
-    showScreen('screenWait');
-    try {
-        const url = GAS_URL + "?action=getAllMasters&deviceId=" + deviceId;
-        const resp = await fetch(url);
-        
-        // 【事実確認用デバッグ】レスポンスの詳細を表示
-        console.log("Response Status:", resp.status);
-        console.log("Response Headers:", [...resp.headers.entries()]);
-        
-        if (!resp.ok) {
-            const text = await resp.text();
-            console.error("Server Error Response:", text);
-            throw new Error("HTTP error " + resp.status);
+    async function init() {
+        showScreen('screenWait');
+        try {
+            const url = GAS_URL + "?action=getAllMasters&deviceId=" + deviceId;
+            const resp = await fetch(url);
+            
+            if (!resp.ok) {
+                const text = await resp.text();
+                console.error("Server Error Response:", text);
+                throw new Error("HTTP error " + resp.status);
+            }
+            
+            masters = await resp.json();
+            if (masters.device) {
+                updateStationDisplay(masters.device.name, masters.device.config);
+                document.getElementById('btnStartScan').style.display = "block";
+            }
+        } catch(e) {
+            console.error("Fetch Details:", e);
+            alert("通信失敗: " + e.message);
         }
-        
-        masters = await resp.json();
-        // ... (以下略)
-    } catch(e) {
-        // 【事実確認用デバッグ】エラー発生時の詳細を画面にも表示
-        console.error("Fetch Details:", e);
-        alert("通信失敗: " + e.message + "\nコンソール(F12)で詳細を確認してください");
+        showScreen('screenMain');
     }
-    showScreen('screenMain');
-}
 
     function onScanSuccess(no) {
         const scanNo = String(no).trim();
         state = { tehai: scanNo, proc: '', staff: '', mac: '', targetRow: -1, isEndMode: false };
         document.getElementById('tehaiDisplay').innerHTML = `手配No：<span>${scanNo}</span>`;
         
-        // 作業中リストから探す
         const work = (masters.activeWorks || []).find(w => String(w.tehai).trim() === scanNo);
-        
         showScreen('screenDetail');
         
         if (work) {
-            // ■ 2回目以降（作業中データあり）
             state.isEndMode = true; 
             state.proc = work.proc; 
             state.staff = work.staff; 
             state.mac = work.mac; 
             state.targetRow = work.row;
             
-            // 情報をセットして、選択画面をスキップして完了報告ボタンのみ表示
             refreshSlots();
             renderEndUI();
         } else {
-            // ■ 1回目（新規開始）
             state.isEndMode = false; 
-            renderStartProcUI(); // ここで工程選択（または1工程時の自動スキップ）が走ります
+            renderStartProcUI();
         }
     }
 
@@ -162,14 +155,12 @@
         const config = masters.device ? masters.device.config : "";
         const procList = config.split(',').map(p => p.trim()).filter(Boolean);
 
-        // ■ 追加：工程が1つなら即座に決定する
         if (procList.length === 1) {
             state.proc = procList[0];
             renderStartStaffUI();
             return;
         }
 
-        // 工程が複数ある場合は従来通りボタンを表示
         document.getElementById('button-title').innerText = "担当工程を選択してください";
         procList.forEach(p => {
             const btn = document.createElement('button');
@@ -242,32 +233,29 @@
         }
     }
 
-    // GitHub側のスクリプト内
-async function saveRecord(type) {
-    document.getElementById('button-area').innerHTML = "<p>送信中...</p>";
-    
-    // パラメータを整理
-    const url = new URL(GAS_URL);
-    url.searchParams.append('action', 'saveWorkRecord');
-    url.searchParams.append('type', type);
-    url.searchParams.append('tehaiNo', state.tehai);
-    url.searchParams.append('process', state.proc);
-    url.searchParams.append('staff', state.staff);
-    url.searchParams.append('machine', state.mac);
-    url.searchParams.append('deviceId', deviceId);
+    async function saveRecord(type) {
+        document.getElementById('button-area').innerHTML = "<p>送信中...</p>";
+        
+        const url = new URL(GAS_URL);
+        url.searchParams.append('action', 'saveWorkRecord');
+        url.searchParams.append('type', type);
+        url.searchParams.append('tehaiNo', state.tehai);
+        url.searchParams.append('process', state.proc);
+        url.searchParams.append('staff', state.staff);
+        url.searchParams.append('machine', state.mac);
+        url.searchParams.append('deviceId', deviceId);
 
-    try {
-        // no-cors を外す（GAS側がCORS対応のレスポンスを返すようにするため）
-        const resp = await fetch(url);
-        const result = await resp.json();
-        alert(type === "end" ? "完了しました" : "開始しました");
-    } catch(e) {
-        console.error(e);
-        alert("送信に失敗しました");
+        try {
+            const resp = await fetch(url);
+            const result = await resp.json();
+            alert(type === "end" ? "完了しました" : "開始しました");
+        } catch(e) {
+            console.error(e);
+            alert("送信に失敗しました");
+        }
+        resetToMain();
+        init();
     }
-    resetToMain();
-    init(); // データ再読み込み
-}
 
     function refreshSlots(activeKey) {
         const keys = ['proc', 'staff', 'mac'];
@@ -325,7 +313,7 @@ async function saveRecord(type) {
         btn.disabled = true;
         btn.innerText = "認証中...";
         try {
-            const resp = await fetch(GAS_URL + "?action=saveDeviceConfig&deviceId=" + deviceId + "&deviceName=" + encodeURIComponent(name) + "&processList=" + encodeURIComponent(sel));
+            const resp = await fetch(GAS_URL + "?action=getAdminPassword");
             const res = await resp.json();
             if (String(input) === String(res.password).trim()) {
                 loadConfigScreen();
@@ -335,7 +323,7 @@ async function saveRecord(type) {
             }
         } catch (e) {
             console.error(e);
-            alert("通信エラー：URLの末尾に空白等の不純物がないか確認してください");
+            alert("通信エラー");
             btn.disabled = false; btn.innerText = "ログイン";
         }
     }
@@ -368,11 +356,10 @@ async function saveRecord(type) {
                          .filter(b => b.dataset.selected === "true")
                          .map(b => b.innerText).join(',');
         if(!name || !sel) return alert("内容を確認してください");
-        const waitMsg = document.querySelector('#screenWait p');
-        if(waitMsg) waitMsg.innerText = "設定を保存して同期中...";
         showScreen('screenWait');
         try {
-            await fetch(GAS_URL + "?action=saveDeviceConfig&deviceId=" + deviceId + "&deviceName=" + encodeURIComponent(name) + "&processList=" + encodeURIComponent(sel), {mode:'no-cors'});
+            // mode:'no-cors'を削除し、直接fetchする
+            await fetch(GAS_URL + "?action=saveDeviceConfig&deviceId=" + deviceId + "&deviceName=" + encodeURIComponent(name) + "&processList=" + encodeURIComponent(sel));
             setTimeout(() => { location.reload(); }, 800);
         } catch(e) {
             alert("保存に失敗しました");
