@@ -313,7 +313,7 @@ async function saveRecord(type) {
         btn.disabled = true;
         btn.innerText = "認証中...";
         try {
-            const resp = await fetch(GAS_URL + "?action=getAdminPassword");
+            const resp = await fetch(GAS_URL + "?action=saveDeviceConfig&deviceId=" + deviceId + "&deviceName=" + encodeURIComponent(name) + "&processList=" + encodeURIComponent(sel));
             const res = await resp.json();
             if (String(input) === String(res.password).trim()) {
                 loadConfigScreen();
