@@ -112,20 +112,20 @@
         showScreen('screenDetail');
         
         if (work) {
-            // 2回目以降（作業中データあり）
+            // ■ 2回目以降（作業中データあり）
             state.isEndMode = true; 
             state.proc = work.proc; 
             state.staff = work.staff; 
             state.mac = work.mac; 
             state.targetRow = work.row;
             
-            // 情報を自動セットして完了画面へ
+            // 情報をセットして、選択画面をスキップして完了報告ボタンのみ表示
             refreshSlots();
             renderEndUI();
         } else {
-            // 1回目（新規開始）
+            // ■ 1回目（新規開始）
             state.isEndMode = false; 
-            renderStartProcUI();
+            renderStartProcUI(); // ここで工程選択（または1工程時の自動スキップ）が走ります
         }
     }
 
