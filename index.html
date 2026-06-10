@@ -87,15 +87,12 @@
         document.getElementById('tehaiDisplay').innerHTML = `手配No：<span>${state.tehai}</span>`;
         showScreen('screenDetail');
         document.getElementById('loading-overlay').style.display = 'flex';
-        
         try {
             const res = await safeFetch(`${GAS_URL}?action=checkStatus&tehaiNo=${encodeURIComponent(state.tehai)}`);
             if (res.mode === "END") {
                 state.proc = res.workData[1]; state.staff = res.workData[2]; state.mac = res.workData[3];
                 renderEndUI();
-            } else {
-                renderStartProcUI();
-            }
+            } else { renderStartProcUI(); }
         } catch(e) { alert("判定エラー"); resetToMain(); } finally { document.getElementById('loading-overlay').style.display = 'none'; }
     }
 
@@ -135,36 +132,14 @@
     }
 
     async function finalizeAction(m) {
-    state.mac = m; 
-    refreshSlots('mac');
-    document.getElementById('loading-overlay').style.display = 'flex';
-    
-    try {
-        const url = `${GAS_URL}?action=executeAction&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
-        const response = await fetch(url);
-        const text = await response.text(); 
-        
-        // 【強制デバッグ】ここでGASの返答を丸ごと表示します。
-        // これで「エラーメッセージなし」の原因が判明します。
-        alert("GASから届いた生のデータ: " + text);
-        
-        const res = JSON.parse(text);
-        
-        // 判定ロジックを一度無視して、何が返ってきているか確認
-        alert("解析結果: success=" + res.success + ", message=" + res.message);
-        
-        if (res.success) {
-            alert("処理完了");
-            resetToMain();
-        } else {
-            alert("GAS側の判定エラー: " + (res.message || "詳細なし"));
-        }
-    } catch(e) { 
-        alert("通信・解析エラー: " + e.message); 
-    } finally { 
-        document.getElementById('loading-overlay').style.display = 'none'; 
+        state.mac = m; refreshSlots('mac');
+        document.getElementById('loading-overlay').style.display = 'flex';
+        try {
+            const url = `${GAS_URL}?action=executeAction&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
+            const res = await safeFetch(url);
+            if (res.success) { alert("処理完了"); resetToMain(); } else { alert("実行失敗: " + (res.message || "詳細なし")); }
+        } catch(e) { alert("通信エラー: " + e.message); } finally { document.getElementById('loading-overlay').style.display = 'none'; }
     }
-}
 
     function refreshSlots(k) { ['proc', 'staff', 'mac'].forEach(id => { document.getElementById('val-'+id).innerText = state[id] || "---"; document.getElementById('slot-'+id).className = 'select-slot ' + (id === k ? 'active-slot' : (!state[id] ? 'disabled' : '')); }); }
     function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
