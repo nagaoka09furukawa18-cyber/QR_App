@@ -106,21 +106,27 @@
             if (res.error) throw new Error(res.error);
             
             if (res.mode === "START") {
-                // 新規開始フロー
-                state.proc ? renderStartStaffUI() : renderStartProcUI();
+                // 【重要】ここで判定が進んだ結果、すべての条件（工程・作業者・装置）が揃っているか確認
+                if (state.proc && state.staff && state.mac) {
+                    // 全て揃っていれば開始報告ボタンを出す
+                    renderStartReportUI();
+                } else {
+                    // まだ足りなければ選択画面へ
+                    state.proc ? renderStartStaffUI() : renderStartProcUI();
+                }
             } else if (res.mode === "END") {
-                // 終了フローへ状態を復元
                 state.isEndMode = true;
                 state.proc = res.workData[1];
                 state.staff = res.workData[2];
                 state.mac = res.workData[3];
                 renderEndUI();
             } else {
+                // 不整合時などはデフォルトへ
                 renderStartProcUI();
             }
         } catch(e) { 
-            console.error(e); 
-            renderStartProcUI(); // エラー時は工程選択から
+            alert("判定エラー: " + e.message);
+            resetToMain();
         } finally { document.getElementById('loading-overlay').style.display = 'none'; }
     }
 
