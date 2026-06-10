@@ -83,13 +83,19 @@
             showScreen('screenMain');
         } catch(e) { alert("初期化エラー: " + e); }
     }
-    async function onScanSuccess(no) {
-        state = { tehai: String(no).trim(), proc: '', staff: '', mac: '', targetRow: -1, isEndMode: false };
-        document.getElementById('tehaiDisplay').innerHTML = `手配No：<span>${state.tehai}</span>`;
-        showScreen('screenDetail');
-        // スキャン直後に判定を実行して、データがあれば自動で状態を復元・終了UIへ
-        await performAutoCheck();
-    }
+    // 修正版 onScanSuccess
+async function onScanSuccess(no) {
+    // 状態を一度リセット
+    state = { tehai: String(no).trim(), proc: '', staff: '', mac: '', targetRow: -1, isEndMode: false };
+    document.getElementById('tehaiDisplay').innerHTML = `手配No：<span>${state.tehai}</span>`;
+    
+    // 【重要】先にローディングを表示し、判定を待つ
+    document.getElementById('loading-overlay').style.display = 'flex';
+    showScreen('screenDetail'); 
+    
+    // 判定を実行
+    await performAutoCheck();
+}
     
     function selectProcess(procName) {
         state.proc = procName;
@@ -101,7 +107,10 @@
 // 2. 判定ロジックの修正
 async function performAutoCheck() {
     const isFinalCheck = (state.proc && state.staff && state.mac);
-    if (isFinalCheck) document.getElementById('loading-overlay').style.display = 'flex';
+    // 完了モードなら判定のローディング以外何もしない
+    if (state.isEndMode) return; 
+
+    document.getElementById('loading-overlay').style.display = 'flex';
 
     try {
         const url = `${GAS_URL}?action=checkStatus&process=${encodeURIComponent(state.proc)}&tehaiNo=${encodeURIComponent(state.tehai)}&machine=${encodeURIComponent(state.mac || "")}`;
@@ -109,31 +118,22 @@ async function performAutoCheck() {
         
         if (!res || res.error) throw new Error(res.error || "応答なし");
         
-        // --- ここを明確に分岐させる ---
         if (res.mode === "END") {
-            state.isEndMode = true;
+            state.isEndMode = true; // 終了モードを確定
             state.proc = res.workData[1];
             state.staff = res.workData[2];
             state.mac = res.workData[3];
-            
-            // 完了UIを表示
             renderEndUI();
-            // 【重要】ここで処理を完全に終了させる
-            return; 
-        } 
-        
-        if (res.mode === "START") {
+        } else if (res.mode === "START") {
             if (isFinalCheck) {
                 renderStartReportUI();
             } else {
+                // 開始モードのみ、ここを通る
                 state.proc ? renderStartStaffUI() : renderStartProcUI();
             }
-            return;
+        } else {
+            renderStartProcUI();
         }
-
-        // どのモードでもない（WAITINGなど）
-        renderStartProcUI();
-
     } catch(e) { 
         alert("判定エラー: " + e.message); 
         resetToMain();
@@ -141,7 +141,6 @@ async function performAutoCheck() {
         document.getElementById('loading-overlay').style.display = 'none'; 
     }
 }
-
     function renderEndUI() {
     // スロットの表示を更新
     document.getElementById('val-proc').innerText = state.proc;
