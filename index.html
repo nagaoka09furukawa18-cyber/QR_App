@@ -82,11 +82,34 @@
         const scanNo = String(no).trim();
         state = { tehai: scanNo, proc: '', staff: '', mac: '', targetRow: -1, isEndMode: false };
         document.getElementById('tehaiDisplay').innerHTML = `手配No：<span>${scanNo}</span>`;
-        const work = (masters.activeWorks || []).find(w => String(w.tehai).trim() === scanNo);
         showScreen('screenDetail');
-        if (work) { state.isEndMode = true; state.proc = work.proc; state.staff = work.staff; state.mac = work.mac; refreshSlots(); renderEndUI(); }
-        else { state.isEndMode = false; renderStartProcUI(); }
+        renderStartProcUI();
     }
+    
+    // 【新追加】工程選択後の判定処理
+    async function selectProcess(procName) {
+        state.proc = procName;
+        document.getElementById('button-area').innerHTML = "<p>状態確認中...</p>";
+        const url = new URL(GAS_URL);
+        url.searchParams.append('action', 'checkStatus');
+        url.searchParams.append('process', state.proc);
+        url.searchParams.append('tehaiNo', state.tehai);
+        try {
+            const res = await safeFetch(url);
+            if (res.mode === "START") {
+                renderStartStaffUI();
+            } else if (res.mode === "END") {
+                state.isEndMode = true;
+                state.staff = res.workData[2]; // 作業者列
+                state.mac = res.workData[3];   // 装置名列
+                renderEndUI();
+            } else {
+                alert("判定エラー: " + res.message);
+                resetToMain();
+            }
+        } catch(e) { alert("通信エラー"); resetToMain(); }
+    }
+
     function renderEndUI() {
         refreshSlots(); const area = document.getElementById('button-area'); area.innerHTML = "";
         document.getElementById('button-title').innerText = "完了モード";
@@ -96,9 +119,9 @@
     function renderStartProcUI() {
         state.proc = ''; state.staff = ''; state.mac = ''; refreshSlots('proc'); const area = document.getElementById('button-area'); area.innerHTML = "";
         const procList = (masters.device?.config || "").split(',').map(p => p.trim()).filter(Boolean);
-        if (procList.length === 1) { state.proc = procList[0]; renderStartStaffUI(); return; }
+        if (procList.length === 1) { selectProcess(procList[0]); return; }
         document.getElementById('button-title').innerText = "工程選択";
-        procList.forEach(p => { const btn = document.createElement('button'); btn.className = "btn-blue"; btn.innerText = p; btn.onclick = () => { state.proc = p; renderStartStaffUI(); }; area.appendChild(btn); });
+        procList.forEach(p => { const btn = document.createElement('button'); btn.className = "btn-blue"; btn.innerText = p; btn.onclick = () => selectProcess(p); area.appendChild(btn); });
     }
     function renderStartStaffUI() {
         refreshSlots('staff'); const area = document.getElementById('button-area'); area.innerHTML = "";
@@ -133,25 +156,10 @@
         const input = document.getElementById('adminPwInput').value.trim();
         const btn = document.getElementById('adminLoginBtn');
         btn.disabled = true;
-        
         try {
             const res = await safeFetch(GAS_URL + "?action=getAdminPassword");
-            
-            // 【重要】比較の瞬間に中身をコンソールへ表示
-            console.log("【デバッグ】入力値:", "[" + input + "]");
-            console.log("【デバッグ】DBから届いた値:", "[" + (res.password || "") + "]");
-
-            if (String(input) === String(res.password || "").trim()) {
-                console.log("パスワード一致しました");
-                loadConfigScreen();
-            } else {
-                console.warn("パスワード不一致です");
-                alert("パスワードが違います。\nコンソール(F12)で値を確認してください。");
-            }
-        } catch(e) { 
-            console.error("通信エラー詳細:", e);
-            alert("通信エラー"); 
-        }
+            if (String(input) === String(res.password || "").trim()) { loadConfigScreen(); } else { alert("パスワードが違います"); }
+        } catch(e) { alert("通信エラー"); }
         btn.disabled = false;
     }
     function loadConfigScreen() {
