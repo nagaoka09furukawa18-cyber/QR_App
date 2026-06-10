@@ -142,20 +142,25 @@
     try {
         const url = `${GAS_URL}?action=executeAction&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
         const response = await fetch(url);
-        const text = await response.text(); // まずはテキストとして取得
+        const text = await response.text(); 
         
-        console.log("GAS Response:", text); // ブラウザのコンソールで内容を確認してください
-
-        const res = JSON.parse(text); // JSONに変換
+        let res;
+        try {
+            res = JSON.parse(text);
+        } catch(e) {
+            // JSON解析エラーの場合、サーバーからエラーページ等が返ってきている可能性が高い
+            throw new Error("サーバー応答が正しくありません: " + text.substring(0, 50));
+        }
         
         if (res && res.success) {
             alert("処理完了");
             resetToMain();
         } else {
-            alert("実行失敗: " + (res.message || "詳細不明なエラー"));
+            alert("実行失敗: " + (res.message || "詳細不明"));
         }
     } catch(e) { 
-        alert("通信または解析エラー: " + e.message); 
+        // ここでエラー全文を表示
+        alert("実行失敗詳細: " + e.message); 
     } finally { 
         document.getElementById('loading-overlay').style.display = 'none'; 
     }
