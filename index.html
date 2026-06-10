@@ -135,15 +135,31 @@
     }
 
     async function finalizeAction(m) {
-        state.mac = m; refreshSlots('mac');
-        document.getElementById('loading-overlay').style.display = 'flex';
-        try {
-            const url = `${GAS_URL}?action=executeAction&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
-            const res = await safeFetch(url);
-            alert(res.success ? "処理完了" : "実行失敗: " + res.message);
+    state.mac = m; 
+    refreshSlots('mac');
+    document.getElementById('loading-overlay').style.display = 'flex';
+    
+    try {
+        const url = `${GAS_URL}?action=executeAction&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
+        const response = await fetch(url);
+        const text = await response.text(); // まずはテキストとして取得
+        
+        console.log("GAS Response:", text); // ブラウザのコンソールで内容を確認してください
+
+        const res = JSON.parse(text); // JSONに変換
+        
+        if (res && res.success) {
+            alert("処理完了");
             resetToMain();
-        } catch(e) { alert("通信エラー"); } finally { document.getElementById('loading-overlay').style.display = 'none'; }
+        } else {
+            alert("実行失敗: " + (res.message || "詳細不明なエラー"));
+        }
+    } catch(e) { 
+        alert("通信または解析エラー: " + e.message); 
+    } finally { 
+        document.getElementById('loading-overlay').style.display = 'none'; 
     }
+}
 
     function refreshSlots(k) { ['proc', 'staff', 'mac'].forEach(id => { document.getElementById('val-'+id).innerText = state[id] || "---"; document.getElementById('slot-'+id).className = 'select-slot ' + (id === k ? 'active-slot' : (!state[id] ? 'disabled' : '')); }); }
     function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
