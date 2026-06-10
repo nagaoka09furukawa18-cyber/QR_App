@@ -99,41 +99,43 @@
 
     // 2. 判定ロジックの修正
 async function performAutoCheck() {
-    // スキャン直後の判定時はローディングを出さない（ユーザー体験のため）
-    // ただし、装置確定後の本判定はローディングを出す
-    const isFinalCheck = (state.proc && state.staff && state.mac);
-    if (isFinalCheck) document.getElementById('loading-overlay').style.display = 'flex';
+        const isFinalCheck = (state.proc && state.staff && state.mac);
+        if (isFinalCheck) document.getElementById('loading-overlay').style.display = 'flex';
 
-    try {
-        const url = `${GAS_URL}?action=checkStatus&process=${encodeURIComponent(state.proc)}&tehaiNo=${encodeURIComponent(state.tehai)}&machine=${encodeURIComponent(state.mac)}`;
-        const res = await safeFetch(url);
-        
-        if (!res || res.error) throw new Error(res.error || "応答なし");
-        
-        if (res.mode === "START") {
-            if (isFinalCheck) {
-                renderStartReportUI();
+        try {
+            const url = `${GAS_URL}?action=checkStatus&process=${encodeURIComponent(state.proc)}&tehaiNo=${encodeURIComponent(state.tehai)}&machine=${encodeURIComponent(state.mac)}`;
+            const res = await safeFetch(url);
+            
+            if (!res || res.error) throw new Error(res.error || "応答なし");
+            
+            // サーバーの応答を画面に表示して確認（デバッグ用）
+            console.log("mode:", res.mode, "workData:", res.workData);
+            
+            if (res.mode === "END") {
+                // 完了モード：ここで強制的に状態を上書きし、UIを確定させる
+                state.isEndMode = true;
+                state.proc = res.workData[1];
+                state.staff = res.workData[2];
+                state.mac = res.workData[3];
+                
+                // 他のUI表示系を呼ばず、renderEndUIのみを呼ぶ
+                renderEndUI();
+            } else if (res.mode === "START") {
+                if (isFinalCheck) {
+                    renderStartReportUI();
+                } else {
+                    state.proc ? renderStartStaffUI() : renderStartProcUI();
+                }
             } else {
-                // スキャン直後の仮判定なら、工程選択UIへ
-                state.proc ? renderStartStaffUI() : renderStartProcUI();
+                renderStartProcUI();
             }
-        } else if (res.mode === "END") {
-            state.isEndMode = true;
-            state.proc = res.workData[1];
-            state.staff = res.workData[2];
-            state.mac = res.workData[3];
-            renderEndUI();
-        } else {
-            // WAITINGやERRORのときは、手動で工程選択へ戻す
-            renderStartProcUI();
+        } catch(e) { 
+            alert("判定エラー: " + e.message); 
+            resetToMain();
+        } finally { 
+            document.getElementById('loading-overlay').style.display = 'none'; 
         }
-    } catch(e) { 
-        alert("判定エラー: " + e.message); 
-        resetToMain();
-    } finally { 
-        document.getElementById('loading-overlay').style.display = 'none'; 
     }
-}
 
     function renderEndUI() {
         refreshSlots(); const area = document.getElementById('button-area'); area.innerHTML = "";
