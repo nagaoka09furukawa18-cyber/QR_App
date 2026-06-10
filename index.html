@@ -98,46 +98,71 @@
     }
 
     // 2. 判定ロジックの修正
+// 2. 判定ロジックの修正
 async function performAutoCheck() {
-        const isFinalCheck = (state.proc && state.staff && state.mac);
-        if (isFinalCheck) document.getElementById('loading-overlay').style.display = 'flex';
+    const isFinalCheck = (state.proc && state.staff && state.mac);
+    if (isFinalCheck) document.getElementById('loading-overlay').style.display = 'flex';
 
-        try {
-            // ここで machine が空でもリクエストを送る
-            const url = `${GAS_URL}?action=checkStatus&process=${encodeURIComponent(state.proc)}&tehaiNo=${encodeURIComponent(state.tehai)}&machine=${encodeURIComponent(state.mac || "")}`;
-            const res = await safeFetch(url);
+    try {
+        const url = `${GAS_URL}?action=checkStatus&process=${encodeURIComponent(state.proc)}&tehaiNo=${encodeURIComponent(state.tehai)}&machine=${encodeURIComponent(state.mac || "")}`;
+        const res = await safeFetch(url);
+        
+        if (!res || res.error) throw new Error(res.error || "応答なし");
+        
+        // --- ここを明確に分岐させる ---
+        if (res.mode === "END") {
+            state.isEndMode = true;
+            state.proc = res.workData[1];
+            state.staff = res.workData[2];
+            state.mac = res.workData[3];
             
-            if (!res || res.error) throw new Error(res.error || "応答なし");
-            
-            if (res.mode === "END") {
-                state.isEndMode = true;
-                state.proc = res.workData[1];
-                state.staff = res.workData[2];
-                state.mac = res.workData[3];
-                renderEndUI(); // ← これが呼ばれれば作業者・装置名はDBの値で固定される
-            } else if (res.mode === "START") {
-                if (isFinalCheck) {
-                    renderStartReportUI();
-                } else {
-                    state.proc ? renderStartStaffUI() : renderStartProcUI();
-                }
+            // 完了UIを表示
+            renderEndUI();
+            // 【重要】ここで処理を完全に終了させる
+            return; 
+        } 
+        
+        if (res.mode === "START") {
+            if (isFinalCheck) {
+                renderStartReportUI();
             } else {
-                renderStartProcUI();
+                state.proc ? renderStartStaffUI() : renderStartProcUI();
             }
-        } catch(e) { 
-            alert("判定エラー: " + e.message); 
-            resetToMain();
-        } finally { 
-            document.getElementById('loading-overlay').style.display = 'none'; 
+            return;
         }
+
+        // どのモードでもない（WAITINGなど）
+        renderStartProcUI();
+
+    } catch(e) { 
+        alert("判定エラー: " + e.message); 
+        resetToMain();
+    } finally { 
+        document.getElementById('loading-overlay').style.display = 'none'; 
     }
+}
 
     function renderEndUI() {
-        refreshSlots(); const area = document.getElementById('button-area'); area.innerHTML = "";
-        document.getElementById('button-title').innerText = "完了モード";
-        const btn = document.createElement('button'); btn.className = "btn-main btn-green"; btn.innerText = "完了報告を送る";
-        btn.onclick = () => saveRecord("end"); area.appendChild(btn);
-    }
+    // スロットの表示を更新
+    document.getElementById('val-proc').innerText = state.proc;
+    document.getElementById('val-staff').innerText = state.staff;
+    document.getElementById('val-mac').innerText = state.mac;
+    
+    // スロットのスタイルを有効（青枠）にする
+    ['proc', 'staff', 'mac'].forEach(k => {
+        document.getElementById('slot-'+k).className = 'select-slot active-slot';
+    });
+
+    const area = document.getElementById('button-area'); 
+    area.innerHTML = "";
+    document.getElementById('button-title').innerText = "完了モード";
+    
+    const btn = document.createElement('button'); 
+    btn.className = "btn-main btn-green"; 
+    btn.innerText = "完了報告を送る";
+    btn.onclick = () => saveRecord("end"); 
+    area.appendChild(btn);
+}
     function renderStartProcUI() {
         state.proc = ''; refreshSlots('proc'); 
         const area = document.getElementById('button-area'); area.innerHTML = "";
