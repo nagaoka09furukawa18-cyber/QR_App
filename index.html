@@ -8,8 +8,7 @@
     <style>
         body { font-family: -apple-system, sans-serif; text-align: center; background: #f4f7f9; padding: 10px; margin: 0; color: #333; }
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
-        .screen { display: none; }
-        .active { display: block; }
+        .screen { display: none; } .active { display: block; }
         button { padding: 12px 18px; margin: 5px; font-size: 15px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
         .btn-blue { background: #007bff; color: white; }
         .btn-green { background: #28a745; color: white; }
@@ -69,15 +68,12 @@
     let deviceId = localStorage.getItem('deviceId') || 'ID-' + Math.random().toString(36).substring(2, 8).toUpperCase();
     localStorage.setItem('deviceId', deviceId);
 
-    async function safeFetch(url) { 
-        const resp = await fetch(url); const text = await resp.text(); 
-        try { return JSON.parse(text); } catch(e) { throw new Error("JSON解析失敗"); }
-    }
+    async function safeFetch(url) { try { const resp = await fetch(url); return await resp.json(); } catch(e) { throw new Error("JSON解析失敗"); } }
     async function init() {
         showScreen('screenWait');
         try {
             masters = await safeFetch(GAS_URL + "?action=getAllMasters&deviceId=" + deviceId);
-            if (masters.device) { updateStationDisplay(masters.device.name, masters.device.config); document.getElementById('btnStartScan').style.display = "block"; }
+            if (masters.device) { document.getElementById('currentStation').innerText = `端末: ${masters.device.name}\n工程: ${masters.device.config}`; document.getElementById('btnStartScan').style.display = "block"; }
             showScreen('screenMain');
         } catch(e) { alert("初期化エラー"); }
     }
@@ -91,6 +87,7 @@
             const res = await safeFetch(`${GAS_URL}?action=checkStatus&tehaiNo=${encodeURIComponent(state.tehai)}`);
             if (res.mode === "END") {
                 state.proc = res.workData[1]; state.staff = res.workData[2]; state.mac = res.workData[3];
+                refreshSlots();
                 renderEndUI();
             } else { renderStartProcUI(); }
         } catch(e) { alert("判定エラー"); resetToMain(); } finally { document.getElementById('loading-overlay').style.display = 'none'; }
@@ -98,88 +95,72 @@
 
     function renderStartProcUI() {
         state.proc = ''; refreshSlots('proc');
-        const area = document.getElementById('button-area'); area.innerHTML = "";
-        document.getElementById('button-title').innerText = "工程選択";
-        (masters.device?.config || "").split(',').map(p => p.trim()).filter(Boolean).forEach(p => { 
-            const b = document.createElement('button'); b.className = "btn-blue"; b.innerText = p; 
-            b.onclick = () => { state.proc = p; refreshSlots('proc'); renderStartStaffUI(); }; 
-            area.appendChild(b); 
-        });
+        const list = (masters.device?.config || "").split(',').map(p => p.trim()).filter(Boolean);
+        if (list.length === 1) { selectProc(list[0]); }
+        else {
+            const area = document.getElementById('button-area'); area.innerHTML = "";
+            document.getElementById('button-title').innerText = "工程選択";
+            list.forEach(p => { const b = document.createElement('button'); b.className = "btn-blue"; b.innerText = p; b.onclick = () => selectProc(p); area.appendChild(b); });
+        }
     }
+    function selectProc(p) { state.proc = p; refreshSlots('proc'); renderStartStaffUI(); }
 
     function renderStartStaffUI() {
-        refreshSlots('staff'); const area = document.getElementById('button-area'); area.innerHTML = "";
-        document.getElementById('button-title').innerText = "作業者選択";
-        masters.staffs.filter(r => String(r[0]).trim() === state.proc).map(r => String(r[1]).split(',')).flat().map(s => s.trim()).filter(Boolean).forEach(s => {
-            const b = document.createElement('button'); b.className = "btn-green"; b.innerText = s; 
-            b.onclick = () => { state.staff = s; refreshSlots('staff'); renderStartMacUI(); }; 
-            area.appendChild(b);
-        });
+        refreshSlots('staff');
+        const list = masters.staffs.filter(r => String(r[0]).trim() === state.proc).map(r => String(r[1]).split(',')).flat().map(s => s.trim()).filter(Boolean);
+        if (list.length <= 1) { selectStaff(list[0] || "-"); }
+        else {
+            const area = document.getElementById('button-area'); area.innerHTML = "";
+            document.getElementById('button-title').innerText = "作業者選択";
+            list.forEach(s => { const b = document.createElement('button'); b.className = "btn-green"; b.innerText = s; b.onclick = () => selectStaff(s); area.appendChild(b); });
+        }
     }
+    function selectStaff(s) { state.staff = s; refreshSlots('staff'); renderStartMacUI(); }
 
     function renderStartMacUI() {
-        refreshSlots('mac'); const area = document.getElementById('button-area'); area.innerHTML = "";
+        refreshSlots('mac');
+        const list = [...new Set(masters.machines.filter(r => String(r[0]).trim() === state.proc && String(r[1]).split(',').map(s=>s.trim()).includes(state.staff)).map(r => String(r[2]).split(',')).flat().map(d => d.trim()))].filter(Boolean);
+        const area = document.getElementById('button-area'); area.innerHTML = "";
         document.getElementById('button-title').innerText = "装置選択";
-        [...new Set(masters.machines.filter(r => String(r[0]).trim() === state.proc && String(r[1]).split(',').map(s=>s.trim()).includes(state.staff)).map(r => String(r[2]).split(',')).flat().map(d => d.trim()))].filter(Boolean).forEach(m => {
-            const b = document.createElement('button'); b.className = "btn-blue"; b.innerText = m; 
-            b.onclick = () => { state.mac = m; refreshSlots('mac'); renderStartFinalUI(); }; 
-            area.appendChild(b);
-        });
+        list.forEach(m => { const b = document.createElement('button'); b.className = "btn-blue"; b.innerText = m; b.onclick = () => { state.mac = m; refreshSlots('mac'); renderFinalConfirm("開始準備完了"); }; area.appendChild(b); });
     }
 
-    function renderStartFinalUI() {
+    function renderFinalConfirm(msg) {
         const area = document.getElementById('button-area'); area.innerHTML = "";
-        document.getElementById('button-title').innerText = "開始確認";
-        const b = document.createElement('button'); b.className = "btn-main btn-green"; b.innerText = "開始する";
-        b.onclick = () => finalizeAction();
-        area.appendChild(b);
+        document.getElementById('button-title').innerText = msg;
+        const b = document.createElement('button'); b.className = "btn-main btn-green"; b.innerText = "実行する";
+        b.onclick = () => finalizeAction(); area.appendChild(b);
     }
-
     function renderEndUI() {
-        refreshSlots();
-        const area = document.getElementById('button-area'); area.innerHTML = "";
-        document.getElementById('button-title').innerText = "完了報告";
-        const b = document.createElement('button'); b.className = "btn-main btn-green"; b.innerText = "完了報告を送る";
-        b.onclick = () => finalizeAction();
-        area.appendChild(b);
+        renderFinalConfirm("完了報告を送信しますか？");
     }
 
     async function finalizeAction() {
         document.getElementById('loading-overlay').style.display = 'flex';
         try {
-            const url = `${GAS_URL}?action=executeAction&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
-            const res = await safeFetch(url);
-            if (res.success) { alert("処理完了"); resetToMain(); } else { alert("実行失敗: " + (res.message || "詳細なし")); }
-        } catch(e) { alert("通信エラー: " + e.message); } finally { document.getElementById('loading-overlay').style.display = 'none'; }
+            const res = await safeFetch(`${GAS_URL}?action=executeAction&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`);
+            if (res.success) { alert("処理完了"); resetToMain(); } else { alert("失敗: " + res.message); }
+        } catch(e) { alert("エラー"); } finally { document.getElementById('loading-overlay').style.display = 'none'; }
     }
 
     function refreshSlots(k) { ['proc', 'staff', 'mac'].forEach(id => { document.getElementById('val-'+id).innerText = state[id] || "---"; document.getElementById('slot-'+id).className = 'select-slot ' + (id === k ? 'active-slot' : (!state[id] ? 'disabled' : '')); }); }
     function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
     function resetToMain() { state = { tehai: '', proc: '', staff: '', mac: '' }; showScreen('screenMain'); }
     async function startScan() { showScreen('screenScanner'); const s = new Html5Qrcode("reader"); await s.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => { s.stop().then(() => onScanSuccess(txt)); }).catch(() => resetToMain()); }
-    function updateStationDisplay(n, c) { document.getElementById('currentStation').innerText = `端末: ${n}\n工程: ${c}`; }
-    function authAdmin() { document.getElementById('adminPwInput').value = ""; showScreen('screenAuth'); }
+    function authAdmin() { showScreen('screenAuth'); }
     async function checkPassword() {
-        const input = document.getElementById('adminPwInput').value.trim();
         const res = await safeFetch(GAS_URL + "?action=getAdminPassword");
-        if (input === String(res.password || "").trim()) loadConfigScreen(); else alert("パスワードが違います");
-    }
-    function loadConfigScreen() {
-        showScreen('screenConfig'); document.getElementById('inputDeviceName').value = masters.device?.name || "";
-        const list = document.getElementById('configList'); list.innerHTML = "";
-        const cur = (masters.device?.config || "").split(',').map(s=>s.trim());
-        masters.processes.forEach(p => {
-            const b = document.createElement('button'); b.innerText = p; const sel = cur.includes(p); b.className = sel ? "btn-blue" : "btn-gray"; b.dataset.selected = sel ? "true" : "false";
-            b.onclick = () => { b.dataset.selected = (b.dataset.selected === "true" ? "false" : "true"); b.className = b.dataset.selected === "true" ? "btn-blue" : "btn-gray"; };
-            list.appendChild(b);
-        });
+        if (document.getElementById('adminPwInput').value === String(res.password).trim()) {
+            showScreen('screenConfig'); document.getElementById('inputDeviceName').value = masters.device?.name || "";
+            const list = document.getElementById('configList'); list.innerHTML = "";
+            const cur = (masters.device?.config || "").split(',');
+            masters.processes.forEach(p => { const b = document.createElement('button'); b.innerText = p; b.className = cur.includes(p) ? "btn-blue" : "btn-gray"; b.onclick = () => b.className = b.className === "btn-blue" ? "btn-gray" : "btn-blue"; list.appendChild(b); });
+        } else alert("パスワードエラー");
     }
     async function saveConfig() {
-        const n = document.getElementById('inputDeviceName').value.trim();
-        const sel = Array.from(document.querySelectorAll('#configList button')).filter(b => b.dataset.selected === "true").map(b => b.innerText).join(',');
-        if(!n || !sel) return alert("入力不足");
-        showScreen('screenWait');
-        try { await safeFetch(`${GAS_URL}?action=saveDeviceConfig&deviceId=${deviceId}&deviceName=${encodeURIComponent(n)}&processList=${encodeURIComponent(sel)}`); location.reload(); } catch(e) { alert("失敗"); showScreen('screenConfig'); }
+        const sel = Array.from(document.querySelectorAll('#configList button')).filter(b => b.className === "btn-blue").map(b => b.innerText).join(',');
+        await safeFetch(`${GAS_URL}?action=saveDeviceConfig&deviceId=${deviceId}&deviceName=${encodeURIComponent(document.getElementById('inputDeviceName').value)}&processList=${encodeURIComponent(sel)}`);
+        location.reload();
     }
     window.onload = init;
 </script>
