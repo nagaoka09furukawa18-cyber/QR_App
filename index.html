@@ -139,29 +139,19 @@
     refreshSlots('mac');
     document.getElementById('loading-overlay').style.display = 'flex';
     
+    // 送信URL自体を生成してアラートで表示（パラメータの確認）
+    const url = `${GAS_URL}?action=executeAction&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
+    
     try {
-        const url = `${GAS_URL}?action=executeAction&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
-        
         const response = await fetch(url);
         const text = await response.text(); 
         
-        // 成功判定とデバッグ表示の分岐
-        if (text.startsWith("{") || text.startsWith("[")) {
-            const res = JSON.parse(text);
-            if (res.success) {
-                alert("処理完了");
-                resetToMain();
-            } else {
-                alert("実行失敗: " + (res.message || "詳細不明"));
-            }
-        } else {
-            // JSONでない場合はGAS側でエラー(HTML等)が発生している
-            alert("GAS側エラー内容: " + text);
-        }
+        // 成功・失敗に関係なく、何が返ってきたか画面に強引に表示
+        // これで「サーバーから何が返ってきているか」が確実に分かります
+        document.body.innerHTML = `<div style="padding:20px; word-break:break-all;"><h1>サーバー応答:</h1>${text}</div>`;
+        
     } catch(e) { 
-        alert("通信・処理エラー: " + e.message); 
-    } finally { 
-        document.getElementById('loading-overlay').style.display = 'none'; 
+        document.body.innerHTML = `<div style="padding:20px;"><h1>通信エラーが発生しました:</h1>${e.message}</div>`;
     }
 }
 
