@@ -103,23 +103,18 @@ async function performAutoCheck() {
         if (isFinalCheck) document.getElementById('loading-overlay').style.display = 'flex';
 
         try {
-            const url = `${GAS_URL}?action=checkStatus&process=${encodeURIComponent(state.proc)}&tehaiNo=${encodeURIComponent(state.tehai)}&machine=${encodeURIComponent(state.mac)}`;
+            // ここで machine が空でもリクエストを送る
+            const url = `${GAS_URL}?action=checkStatus&process=${encodeURIComponent(state.proc)}&tehaiNo=${encodeURIComponent(state.tehai)}&machine=${encodeURIComponent(state.mac || "")}`;
             const res = await safeFetch(url);
             
             if (!res || res.error) throw new Error(res.error || "応答なし");
             
-            // サーバーの応答を画面に表示して確認（デバッグ用）
-            console.log("mode:", res.mode, "workData:", res.workData);
-            
             if (res.mode === "END") {
-                // 完了モード：ここで強制的に状態を上書きし、UIを確定させる
                 state.isEndMode = true;
                 state.proc = res.workData[1];
                 state.staff = res.workData[2];
                 state.mac = res.workData[3];
-                
-                // 他のUI表示系を呼ばず、renderEndUIのみを呼ぶ
-                renderEndUI();
+                renderEndUI(); // ← これが呼ばれれば作業者・装置名はDBの値で固定される
             } else if (res.mode === "START") {
                 if (isFinalCheck) {
                     renderStartReportUI();
