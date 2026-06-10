@@ -87,27 +87,50 @@
     }
     
     // 【新追加】工程選択後の判定処理
+    // 【修正後の selectProcess】
     async function selectProcess(procName) {
         state.proc = procName;
+        // 画面の見た目を更新
+        refreshSlots('proc'); 
+        
         document.getElementById('button-area').innerHTML = "<p>状態確認中...</p>";
+        
+        // URL構築：もしstate.tehaiが空なら絶対に通信しないようにする
+        if (!state.tehai) {
+            alert("手配Noが取得できていません。スキャンし直してください。");
+            return;
+        }
+
         const url = new URL(GAS_URL);
         url.searchParams.append('action', 'checkStatus');
         url.searchParams.append('process', state.proc);
         url.searchParams.append('tehaiNo', state.tehai);
+        
         try {
             const res = await safeFetch(url);
+            
+            // サーバー側でエラーが返った場合（res.errorがある場合など）
+            if (res.error) {
+                alert("判定エラー: " + res.error);
+                return;
+            }
+
             if (res.mode === "START") {
                 renderStartStaffUI();
             } else if (res.mode === "END") {
                 state.isEndMode = true;
-                state.staff = res.workData[2]; // 作業者列
-                state.mac = res.workData[3];   // 装置名列
+                // workDataのインデックスを確認（GAS側の配列順に合わせる）
+                state.staff = res.workData[2]; 
+                state.mac = res.workData[3];
                 renderEndUI();
             } else {
-                alert("判定エラー: " + res.message);
+                alert("判定モード取得失敗: " + (res.message || "不明なエラー"));
                 resetToMain();
             }
-        } catch(e) { alert("通信エラー"); resetToMain(); }
+        } catch(e) {
+            alert("通信エラー: サーバーとの接続に失敗しました");
+            resetToMain();
+        }
     }
 
     function renderEndUI() {
