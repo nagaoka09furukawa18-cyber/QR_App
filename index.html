@@ -48,9 +48,6 @@
     <div id="screenAuth" class="screen">
         <h3>管理者認証</h3>
         <input type="password" id="adminPwInput" placeholder="パスワードを入力">
-        <div style="text-align: right; font-size: 13px; margin-bottom: 10px; color: #666;">
-            <input type="checkbox" id="showPw" onclick="togglePw()"> パスワードを表示
-        </div>
         <button id="adminLoginBtn" class="btn-blue btn-main" onclick="checkPassword()">ログイン</button>
         <button class="btn-gray" onclick="resetToMain()">戻る</button>
     </div>
@@ -68,67 +65,51 @@
     let deviceId = localStorage.getItem('deviceId') || 'ID-' + Math.random().toString(36).substring(2, 8).toUpperCase();
     localStorage.setItem('deviceId', deviceId);
 
-    async function safeFetch(url) { const resp = await fetch(url); const text = await resp.text(); return JSON.parse(text); }
+    async function safeFetch(url) { 
+        const resp = await fetch(url); 
+        const text = await resp.text(); 
+        try { return JSON.parse(text); } catch(e) { throw new Error("JSON解析失敗: " + text); }
+    }
     async function init() {
         showScreen('screenWait');
         try {
             masters = await safeFetch(GAS_URL + "?action=getAllMasters&deviceId=" + deviceId);
             if (masters.device) { updateStationDisplay(masters.device.name, masters.device.config); document.getElementById('btnStartScan').style.display = "block"; }
-            else { document.getElementById('currentStation').innerText = "端末未登録"; }
-        } catch(e) { console.error(e); }
-        showScreen('screenMain');
+            showScreen('screenMain');
+        } catch(e) { alert("初期化エラー: " + e); }
     }
     function onScanSuccess(no) {
-        const scanNo = String(no).trim();
-        state = { tehai: scanNo, proc: '', staff: '', mac: '', targetRow: -1, isEndMode: false };
-        document.getElementById('tehaiDisplay').innerHTML = `手配No：<span>${scanNo}</span>`;
+        state = { tehai: String(no).trim(), proc: '', staff: '', mac: '', targetRow: -1, isEndMode: false };
+        document.getElementById('tehaiDisplay').innerHTML = `手配No：<span>${state.tehai}</span>`;
         showScreen('screenDetail');
         renderStartProcUI();
     }
     
-    // 【新追加】工程選択後の判定処理
-    // 【修正後の selectProcess】
     async function selectProcess(procName) {
+        if (!procName) { alert("工程名が不明です"); return; }
         state.proc = procName;
-        // 画面の見た目を更新
         refreshSlots('proc'); 
-        
-        document.getElementById('button-area').innerHTML = "<p>状態確認中...</p>";
-        
-        // URL構築：もしstate.tehaiが空なら絶対に通信しないようにする
-        if (!state.tehai) {
-            alert("手配Noが取得できていません。スキャンし直してください。");
-            return;
-        }
-
-        const url = new URL(GAS_URL);
-        url.searchParams.append('action', 'checkStatus');
-        url.searchParams.append('process', state.proc);
-        url.searchParams.append('tehaiNo', state.tehai);
+        document.getElementById('button-area').innerHTML = "<p>判定中...</p>";
         
         try {
-            const res = await safeFetch(url);
+            const res = await safeFetch(GAS_URL + "?action=checkStatus&process=" + encodeURIComponent(state.proc) + "&tehaiNo=" + encodeURIComponent(state.tehai));
             
-            // サーバー側でエラーが返った場合（res.errorがある場合など）
-            if (res.error) {
-                alert("判定エラー: " + res.error);
-                return;
-            }
-
+            // サーバーの応答を詳細にチェック
+            if (!res) { throw new Error("サーバーからの応答が空です"); }
+            if (res.error) { throw new Error(res.error); }
+            
             if (res.mode === "START") {
                 renderStartStaffUI();
             } else if (res.mode === "END") {
                 state.isEndMode = true;
-                // workDataのインデックスを確認（GAS側の配列順に合わせる）
-                state.staff = res.workData[2]; 
-                state.mac = res.workData[3];
+                state.staff = res.workData ? res.workData[2] : "不明";
+                state.mac = res.workData ? res.workData[3] : "不明";
                 renderEndUI();
             } else {
-                alert("判定モード取得失敗: " + (res.message || "不明なエラー"));
-                resetToMain();
+                alert("不明な応答: " + JSON.stringify(res));
             }
-        } catch(e) {
-            alert("通信エラー: サーバーとの接続に失敗しました");
+        } catch(e) { 
+            alert("判定エラー: " + e.message); 
             resetToMain();
         }
     }
@@ -140,11 +121,15 @@
         btn.onclick = () => saveRecord("end"); area.appendChild(btn);
     }
     function renderStartProcUI() {
-        state.proc = ''; state.staff = ''; state.mac = ''; refreshSlots('proc'); const area = document.getElementById('button-area'); area.innerHTML = "";
+        state.proc = ''; refreshSlots('proc'); 
+        const area = document.getElementById('button-area'); area.innerHTML = "";
         const procList = (masters.device?.config || "").split(',').map(p => p.trim()).filter(Boolean);
         if (procList.length === 1) { selectProcess(procList[0]); return; }
         document.getElementById('button-title').innerText = "工程選択";
-        procList.forEach(p => { const btn = document.createElement('button'); btn.className = "btn-blue"; btn.innerText = p; btn.onclick = () => selectProcess(p); area.appendChild(btn); });
+        procList.forEach(p => { 
+            const btn = document.createElement('button'); btn.className = "btn-blue"; btn.innerText = p; 
+            btn.onclick = () => selectProcess(p); area.appendChild(btn); 
+        });
     }
     function renderStartStaffUI() {
         refreshSlots('staff'); const area = document.getElementById('button-area'); area.innerHTML = "";
