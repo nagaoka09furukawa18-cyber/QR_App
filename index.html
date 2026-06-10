@@ -101,8 +101,8 @@
         const area = document.getElementById('button-area'); area.innerHTML = "";
         document.getElementById('button-title').innerText = "工程選択";
         const procList = (masters.device?.config || "").split(',').map(p => p.trim()).filter(Boolean);
-        if (procList.length === 1) { selectProc(procList[0]); return; }
-        procList.forEach(p => { const b = document.createElement('button'); b.className = "btn-blue"; b.innerText = p; b.onclick = () => selectProc(p); area.appendChild(b); });
+        if (procList.length === 1) { selectProc(procList[0]); }
+        else { procList.forEach(p => { const b = document.createElement('button'); b.className = "btn-blue"; b.innerText = p; b.onclick = () => selectProc(p); area.appendChild(b); }); }
     }
     function selectProc(p) { state.proc = p; refreshSlots('proc'); renderStartStaffUI(); }
 
@@ -119,8 +119,22 @@
         refreshSlots('mac'); const area = document.getElementById('button-area'); area.innerHTML = "";
         document.getElementById('button-title').innerText = "装置選択";
         const list = [...new Set(masters.machines.filter(r => String(r[0]).trim() === state.proc && String(r[1]).split(',').map(s=>s.trim()).includes(state.staff)).map(r => String(r[2]).split(',')).flat().map(d => d.trim()))].filter(Boolean);
-        if (list.length === 0) { finalizeAction("-"); }
-        else { list.forEach(m => { const b = document.createElement('button'); b.className = "btn-blue"; b.innerText = m; b.onclick = () => finalizeAction(m); area.appendChild(b); }); }
+        
+        // 【仕様修正】選択後に自動実行せず、ボタンを表示して待機する
+        list.forEach(m => { 
+            const b = document.createElement('button'); b.className = "btn-blue"; b.innerText = m; 
+            b.onclick = () => { state.mac = m; refreshSlots('mac'); renderStartFinalUI(); }; 
+            area.appendChild(b); 
+        });
+    }
+
+    // 【新設】最終確認ボタン
+    function renderStartFinalUI() {
+        const area = document.getElementById('button-area'); area.innerHTML = "";
+        document.getElementById('button-title').innerText = "開始準備完了";
+        const b = document.createElement('button'); b.className = "btn-main btn-green"; b.innerText = "開始する";
+        b.onclick = () => finalizeAction(state.mac);
+        area.appendChild(b);
     }
 
     function renderEndUI() {
