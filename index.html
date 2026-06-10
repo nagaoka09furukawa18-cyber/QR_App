@@ -106,28 +106,39 @@ async function onScanSuccess(no) {
     }
 
     // 2. 判定ロジックの修正
+// 修正版：判定ロジックの確定版
 async function performAutoCheck() {
-    // 判定終了後にオーバーレイを消す処理を finally で行う
+    document.getElementById('loading-overlay').style.display = 'flex';
+
     try {
-        const url = `${GAS_URL}?action=checkStatus&tehaiNo=${encodeURIComponent(state.tehai)}`;
+        // 現在の state を送ってステータスを確認
+        const url = `${GAS_URL}?action=checkStatus&process=${encodeURIComponent(state.proc)}&tehaiNo=${encodeURIComponent(state.tehai)}&machine=${encodeURIComponent(state.mac || "")}`;
         const res = await safeFetch(url);
         
         if (!res || res.error) throw new Error(res.error || "応答なし");
         
+        // --- 最優先：終了モード ---
         if (res.mode === "END") {
-            // 終了モード：ここで終了UIを出し、関数を終了する
             state.isEndMode = true;
             state.proc = res.workData[1];
             state.staff = res.workData[2];
             state.mac = res.workData[3];
-            renderEndUI();
-        } else if (res.mode === "START") {
-            // 開始モード：ここで初めて工程選択UIへ
-            renderStartProcUI();
+            renderEndUI(); // 終了UIを出して終了
+            return;        // これ以降の判定（開始用コード）には絶対に行かせない
+        }
+        
+        // --- 次点：開始モード ---
+        // ここに到達するのは、終了データがなかった場合のみ
+        if (state.proc && state.staff && state.mac) {
+            renderStartReportUI();
+        } else if (state.proc && state.staff) {
+            renderStartMacUI();
+        } else if (state.proc) {
+            renderStartStaffUI();
         } else {
-            // それ以外
             renderStartProcUI();
         }
+
     } catch(e) { 
         alert("判定エラー: " + e.message); 
         resetToMain();
