@@ -139,19 +139,33 @@
     refreshSlots('mac');
     document.getElementById('loading-overlay').style.display = 'flex';
     
-    // 送信URL自体を生成してアラートで表示（パラメータの確認）
-    const url = `${GAS_URL}?action=executeAction&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
-    
     try {
+        const url = `${GAS_URL}?action=executeAction&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&deviceId=${deviceId}`;
         const response = await fetch(url);
-        const text = await response.text(); 
         
-        // 成功・失敗に関係なく、何が返ってきたか画面に強引に表示
-        // これで「サーバーから何が返ってきているか」が確実に分かります
-        document.body.innerHTML = `<div style="padding:20px; word-break:break-all;"><h1>サーバー応答:</h1>${text}</div>`;
+        // 1. レスポンスのテキストをそのまま取得
+        const text = await response.text();
         
+        // 2. 何が返ってきたか画面に強引に表示（これでJSONかHTMLか一発でわかる）
+        if (!text) {
+            alert("エラー: サーバーから応答がありません");
+        } else if (text.includes("{") && text.includes("}")) {
+            // JSONらしきものが含まれている場合
+            const res = JSON.parse(text);
+            if (res.success) {
+                alert("処理完了");
+                resetToMain();
+            } else {
+                alert("実行失敗: " + (res.message || "エラーメッセージなし"));
+            }
+        } else {
+            // JSONですらない場合（GASのHTMLエラーページ等）
+            alert("GAS応答異常: " + text.substring(0, 100));
+        }
     } catch(e) { 
-        document.body.innerHTML = `<div style="padding:20px;"><h1>通信エラーが発生しました:</h1>${e.message}</div>`;
+        alert("通信エラー: " + e.message); 
+    } finally { 
+        document.getElementById('loading-overlay').style.display = 'none'; 
     }
 }
 
