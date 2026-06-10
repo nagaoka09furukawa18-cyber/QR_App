@@ -25,9 +25,15 @@
         #button-area { display: flex; flex-wrap: wrap; justify-content: center; }
         #button-title { font-size: 14px; color: #444; margin-bottom: 10px; font-weight: bold; }
         input[type="text"], input[type="password"] { width: 100%; padding: 12px; margin: 5px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
+        
+        /* ローディングオーバーレイ */
+        #loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; }
+        .spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
+<div id="loading-overlay"><div class="spinner"></div><p>開始/終了を確認中...</p></div>
 <div class="card">
     <div id="screenWait" class="screen active"><p>データ同期中...</p></div>
     <div id="screenMain" class="screen">
@@ -61,7 +67,7 @@
 <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxmLIogI02MAlAIUf-cF18FenEdo_9NODfUQoKZhqvut4-wFDOOw2cnWWYLXXxp06nl/exec";
     let state = { tehai: '', proc: '', staff: '', mac: '', targetRow: -1, isEndMode: false };
-    let masters = { processes: [], staffs: [], machines: [], device: null, activeWorks: [] };
+    let masters = { processes: [], staffs: [], machines: [], device: null };
     let deviceId = localStorage.getItem('deviceId') || 'ID-' + Math.random().toString(36).substring(2, 8).toUpperCase();
     localStorage.setItem('deviceId', deviceId);
 
@@ -85,33 +91,31 @@
         renderStartProcUI();
     }
     
-    async function selectProcess(procName) {
-        if (!procName) { alert("工程名が不明です"); return; }
+    function selectProcess(procName) {
         state.proc = procName;
         refreshSlots('proc'); 
-        document.getElementById('button-area').innerHTML = "<p>判定中...</p>";
-        
+        renderStartStaffUI();
+    }
+
+    async function performAutoCheck() {
+        document.getElementById('loading-overlay').style.display = 'flex';
         try {
-            const res = await safeFetch(GAS_URL + "?action=checkStatus&process=" + encodeURIComponent(state.proc) + "&tehaiNo=" + encodeURIComponent(state.tehai));
-            
-            // サーバーの応答を詳細にチェック
-            if (!res) { throw new Error("サーバーからの応答が空です"); }
-            if (res.error) { throw new Error(res.error); }
+            const url = `${GAS_URL}?action=checkStatus&process=${encodeURIComponent(state.proc)}&tehaiNo=${encodeURIComponent(state.tehai)}&machine=${encodeURIComponent(state.mac)}`;
+            const res = await safeFetch(url);
+            if (!res) throw new Error("応答が空です");
+            if (res.error) throw new Error(res.error);
             
             if (res.mode === "START") {
-                renderStartStaffUI();
+                renderStartReportUI();
             } else if (res.mode === "END") {
                 state.isEndMode = true;
                 state.staff = res.workData ? res.workData[2] : "不明";
-                state.mac = res.workData ? res.workData[3] : "不明";
                 renderEndUI();
             } else {
-                alert("不明な応答: " + JSON.stringify(res));
+                alert("判定: " + res.mode + (res.message ? " (" + res.message + ")" : ""));
             }
-        } catch(e) { 
-            alert("判定エラー: " + e.message); 
-            resetToMain();
-        }
+        } catch(e) { alert("判定エラー: " + e.message); resetToMain(); }
+        finally { document.getElementById('loading-overlay').style.display = 'none'; }
     }
 
     function renderEndUI() {
@@ -126,10 +130,7 @@
         const procList = (masters.device?.config || "").split(',').map(p => p.trim()).filter(Boolean);
         if (procList.length === 1) { selectProcess(procList[0]); return; }
         document.getElementById('button-title').innerText = "工程選択";
-        procList.forEach(p => { 
-            const btn = document.createElement('button'); btn.className = "btn-blue"; btn.innerText = p; 
-            btn.onclick = () => selectProcess(p); area.appendChild(btn); 
-        });
+        procList.forEach(p => { const btn = document.createElement('button'); btn.className = "btn-blue"; btn.innerText = p; btn.onclick = () => selectProcess(p); area.appendChild(btn); });
     }
     function renderStartStaffUI() {
         refreshSlots('staff'); const area = document.getElementById('button-area'); area.innerHTML = "";
@@ -142,9 +143,15 @@
         refreshSlots('mac'); const area = document.getElementById('button-area'); area.innerHTML = "";
         document.getElementById('button-title').innerText = "装置選択";
         const deviceList = [...new Set(masters.machines.filter(r => String(r[0]).trim() === state.proc && String(r[1]).split(',').map(s=>s.trim()).includes(state.staff)).map(r => String(r[2]).split(',')).flat().map(d => d.trim()))].filter(Boolean);
-        const finalize = (m) => { state.mac = m; refreshSlots(); area.innerHTML = ""; document.getElementById('button-title').innerText = "開始報告"; const btn = document.createElement('button'); btn.className = "btn-main btn-blue"; btn.innerText = "開始報告を送る"; btn.onclick = () => saveRecord("start"); area.appendChild(btn); };
-        if (deviceList.length <= 1) finalize(deviceList[0] || "-");
+        const finalize = (m) => { state.mac = m; refreshSlots(); performAutoCheck(); };
+        if (deviceList.length === 0) finalize("-");
         else deviceList.forEach(m => { const btn = document.createElement('button'); btn.className = "btn-blue"; btn.innerText = m; btn.onclick = () => finalize(m); area.appendChild(btn); });
+    }
+    function renderStartReportUI() {
+        document.getElementById('button-title').innerText = "開始報告";
+        const area = document.getElementById('button-area'); area.innerHTML = "";
+        const btn = document.createElement('button'); btn.className = "btn-main btn-blue"; btn.innerText = "開始報告を送る";
+        btn.onclick = () => saveRecord("start"); area.appendChild(btn);
     }
     async function saveRecord(type) {
         document.getElementById('button-area').innerHTML = "<p>送信中...</p>";
@@ -159,7 +166,6 @@
     function resetToMain() { state = { tehai: '', proc: '', staff: '', mac: '', targetRow: -1 }; showScreen('screenMain'); }
     function updateStationDisplay(n, c) { document.getElementById('currentStation').innerText = `端末: ${n}\n工程: ${c}`; }
     function authAdmin() { document.getElementById('adminPwInput').value = ""; showScreen('screenAuth'); }
-    function togglePw() { document.getElementById('adminPwInput').type = document.getElementById('showPw').checked ? "text" : "password"; }
     async function checkPassword() {
         const input = document.getElementById('adminPwInput').value.trim();
         const btn = document.getElementById('adminLoginBtn');
