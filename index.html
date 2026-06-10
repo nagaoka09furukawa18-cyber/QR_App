@@ -26,14 +26,13 @@
         #button-title { font-size: 14px; color: #444; margin-bottom: 10px; font-weight: bold; }
         input[type="text"], input[type="password"] { width: 100%; padding: 12px; margin: 5px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
         
-        /* ローディングオーバーレイ */
         #loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; }
         .spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-<div id="loading-overlay"><div class="spinner"></div><p>開始/終了を確認中...</p></div>
+<div id="loading-overlay"><div class="spinner"></div><p>判定・データ復元中...</p></div>
 <div class="card">
     <div id="screenWait" class="screen active"><p>データ同期中...</p></div>
     <div id="screenMain" class="screen">
@@ -84,11 +83,12 @@
             showScreen('screenMain');
         } catch(e) { alert("初期化エラー: " + e); }
     }
-    function onScanSuccess(no) {
+    async function onScanSuccess(no) {
         state = { tehai: String(no).trim(), proc: '', staff: '', mac: '', targetRow: -1, isEndMode: false };
         document.getElementById('tehaiDisplay').innerHTML = `手配No：<span>${state.tehai}</span>`;
         showScreen('screenDetail');
-        renderStartProcUI();
+        // スキャン直後に判定を実行して、データがあれば自動で状態を復元・終了UIへ
+        await performAutoCheck();
     }
     
     function selectProcess(procName) {
@@ -106,16 +106,22 @@
             if (res.error) throw new Error(res.error);
             
             if (res.mode === "START") {
-                renderStartReportUI();
+                // 新規開始フロー
+                state.proc ? renderStartStaffUI() : renderStartProcUI();
             } else if (res.mode === "END") {
+                // 終了フローへ状態を復元
                 state.isEndMode = true;
-                state.staff = res.workData ? res.workData[2] : "不明";
+                state.proc = res.workData[1];
+                state.staff = res.workData[2];
+                state.mac = res.workData[3];
                 renderEndUI();
             } else {
-                alert("判定: " + res.mode + (res.message ? " (" + res.message + ")" : ""));
+                renderStartProcUI();
             }
-        } catch(e) { alert("判定エラー: " + e.message); resetToMain(); }
-        finally { document.getElementById('loading-overlay').style.display = 'none'; }
+        } catch(e) { 
+            console.error(e); 
+            renderStartProcUI(); // エラー時は工程選択から
+        } finally { document.getElementById('loading-overlay').style.display = 'none'; }
     }
 
     function renderEndUI() {
