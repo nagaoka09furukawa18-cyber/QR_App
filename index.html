@@ -124,15 +124,27 @@
     async function finalizeAction() {
         const overlay = document.getElementById('loading-overlay');
         overlay.style.display = 'flex';
+        
+        // 端末名をmastersから取得
+        const devName = masters.device ? masters.device.name : "不明";
+        
         try {
-            const url = `${GAS_URL}?action=executeAction&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&type=${state.mode === 'END' ? 'end' : 'start'}&deviceId=${deviceId}`;
+            // パラメータに deviceName を追加
+            const url = `${GAS_URL}?action=executeAction&tehaiNo=${encodeURIComponent(state.tehai)}` +
+                        `&process=${encodeURIComponent(state.proc)}` +
+                        `&staff=${encodeURIComponent(state.staff)}` +
+                        `&machine=${encodeURIComponent(state.mac)}` +
+                        `&deviceName=${encodeURIComponent(devName)}` +
+                        `&type=${state.mode === 'END' ? 'end' : 'start'}` +
+                        `&deviceId=${deviceId}`;
+                        
             const res = await safeFetch(url);
             overlay.style.display = 'none';
             alert(res.success ? "成功しました" : "失敗: " + res.message);
             resetToMain();
         } catch(e) {
             overlay.style.display = 'none';
-            alert("通信エラーが発生しました");
+            alert("通信エラー");
         }
     }
 
