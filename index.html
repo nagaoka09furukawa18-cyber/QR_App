@@ -130,14 +130,29 @@
         document.getElementById('button-area').innerHTML = "";
         document.getElementById('button-title').innerText = msg;
         const b = document.createElement('button'); b.className = "btn-main btn-green"; b.innerText = "実行する";
-        b.onclick = () => finalizeAction(); document.getElementById('button-area').appendChild(b);
+        b.onclick = () => (); document.getElementById('button-area').appendChild(b);
     }
     async function finalizeAction() {
-        document.getElementById('loading-overlay').style.display = 'flex';
-        const res = await safeFetch(`${GAS_URL}?action=executeAction&tehaiNo=${encodeURIComponent(state.tehai)}&process=${encodeURIComponent(state.proc)}&staff=${encodeURIComponent(state.staff)}&machine=${encodeURIComponent(state.mac)}&type=${state.mode === 'END' ? 'end' : 'start'}&deviceId=${deviceId}`);
-        alert(res.success ? "完了しました" : "エラー");
-        resetToMain();
+    const overlay = document.getElementById('loading-overlay');
+    overlay.style.display = 'flex';
+    
+    try {
+        const res = await safeFetch(...); // サーバーへリクエスト
+        
+        // 【重要】UIの非表示をalertよりも先に実行
+        overlay.style.display = 'none';
+        
+        if (res.success) {
+            alert("成功しました");
+            resetToMain();
+        } else {
+            alert("失敗: " + res.message);
+        }
+    } catch(e) {
+        overlay.style.display = 'none'; // 失敗しても確実に閉じる
+        alert("通信エラー");
     }
+}
     function refreshSlots(k) { ['proc', 'staff', 'mac'].forEach(id => { document.getElementById('val-'+id).innerText = state[id] || "---"; document.getElementById('slot-'+id).className = 'select-slot ' + (id === k ? 'active-slot' : (!state[id] ? 'disabled' : '')); }); }
     function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
     function resetToMain() { state = { tehai: '', proc: '', staff: '', mac: '', mode: '' }; showScreen('screenMain'); }
