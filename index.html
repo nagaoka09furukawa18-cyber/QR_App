@@ -48,7 +48,7 @@
     <div id="screenConfig" class="screen"><h3>端末詳細設定</h3><input type="text" id="inputDeviceName" placeholder="端末名"><div id="configList" style="margin:15px 0; text-align:left;"></div><button class="btn-green btn-main" onclick="saveConfig()">設定保存</button></div>
 </div>
 <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxmLIogI02MAlAIUf-cF18FenEdo_9NODfUQoKZhqvut4-wFDOOw2cnWWYLXXxp06nl/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycby7ha2IGlWzk4J9_BbKMICVd2tqArAJt2QaWR-d8VurAb3Fky-Bpw_uOSKhQBC--Ywe/exec";
     let state = { tehai: '', proc: '', staff: '', mac: '', mode: '' };
     let masters = { processes: [], staffs: [], machines: [], device: null };
     let deviceId = localStorage.getItem('deviceId') || 'ID-' + Math.random().toString(36).substring(2, 8).toUpperCase();
